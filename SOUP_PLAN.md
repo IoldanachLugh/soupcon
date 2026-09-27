@@ -205,7 +205,7 @@ used by `App.jsx` until item 5). Pure functions, no React/DOM dependency
     there. `npm run lint`, `npm run test` (19/19 still passing), and `npm
     run build` all pass.
 
-### 3. Wire into `App.jsx`
+### 3. Wire into `App.jsx` — ✅ FIXED
 
 - Replace the `frtcon`/`frtconMessage` `useMemo`s with `soupcon`/
   `soupconMessage`, fed by the new data instead of `result.alerts`.
@@ -216,6 +216,67 @@ used by `App.jsx` until item 5). Pure functions, no React/DOM dependency
   and should carry over largely unchanged.
 - Resolve the "raw alerts panel" open question here, since it determines
   whether `AlertCard.jsx` and the alerts fetch stay in the tree at all.
+- **Done:**
+  - **Alerts panel:** kept, decoupled from the score, per the plan's own
+    recommendation. `result.alerts` is still fetched
+    (`getActiveAlertsByPoint`) and rendered via `AlertCard`; the count tag
+    next to the badge is unchanged. The one thing genuinely removed is the
+    "Winter alerts driving the score" block -- `classifySoupcon` has no
+    `matchingAlerts` equivalent (the score isn't alert-derived anymore), so
+    that JSX block is gone, replaced with a comment explaining why.
+  - **`result` shape:** now `{ source, lat, lon, locationLabel,
+    hourlyPeriods, extendedPeriods, observation, alerts, fetchedAt }`.
+    `zone` is gone; `getZoneByPoint` (and the now-orphaned
+    `extractZoneIdFromUrl`, `makeZoneCacheKey`) were deleted from
+    `weatherApi.js`/`cache.js` as confirmed-dead code once this was its
+    only call site -- `ZONE_CACHE_PREFIX` itself was kept (just unused for
+    new writes) so `sweepExpiredCache` can still clean up any leftover
+    `frtcon_zone_lookup_*` keys from before this change.
+  - **`runLookupFromCoordinates`** now fetches `getLocationLabel`,
+    `getHourlyForecast`, `getExtendedForecast`, `getCurrentConditions`, and
+    `getActiveAlertsByPoint` in parallel via `Promise.all` with the shared
+    signal -- the first four collapse into a single `/points` request in
+    practice via `getGridpointInfo`'s new in-flight de-dup (added in this
+    step, not item 2, once the concurrent-call pattern this creates became
+    concrete).
+  - **Refresh machinery:** `refreshAlerts` generalized to
+    `refreshWeatherData`, refetching all four SOUPCON-relevant sources
+    (`skipCache: true`) on the same interval/visibilitychange triggers as
+    before -- deliberately not staggering hourly/extended forecast to their
+    own longer TTLs here, to keep this step's scope to wiring rather than a
+    new tiered-refresh scheduler; those TTLs still do real work for a
+    repeat lookup of the same location within the cache window. Flagging
+    in case the extra request volume (4x vs. the old 1x every 5 minutes)
+    is worth revisiting later.
+  - **`handleShare`:** updated to the new variable names and
+    `result.locationLabel` in place of `result.zone.zoneName`. Left
+    otherwise untouched -- it still says "French Toast Condition" and
+    still shares `frtcon.com`'s URL, which is content/domain work
+    (items 4/7/8), not plumbing. Noting explicitly: this call site's
+    hardcoded `frtcon.com` wasn't named in items 7/8's file lists (`index.html`,
+    `manifest.json`, `robots.txt`, `sitemap.xml`, `index.md`) -- flagging it
+    here so it doesn't get missed when those items land.
+  - **Known, deliberate intermediate-state rough edges** (all scoped to
+    later items, not oversights): the badge still literally renders the
+    text "FRTCON" (hardcoded inside `FrtconBadge.jsx`, not a prop -- item
+    5), `FrtconMessage` still says "French Toast Condition #N" (hardcoded
+    -- item 5), the condition box's headline/title/commentary are still
+    French-toast-flavored (`alertMessages.js` -- item 4), CSS classes are
+    still `.frtcon-*` (item 6), and `SnowOverlay` still renders falling
+    snow rather than rain (item 5). The *data* driving all of this --
+    `soupcon.level`, `soupcon.title`, `soupcon.reason`, the location label
+    -- is correctly SOUPCON-based as of this step; only the surrounding
+    text/components haven't caught up yet.
+  - **Verification:** `npm run lint`, `npm run test` (19/19), and `npm run
+    build` all pass. Also smoke-tested that `npm run dev` serves the app
+    without a compile/transform error (confirmed `App.jsx` and its new
+    imports resolve correctly through Vite's dev server). **Not verified
+    live in an actual browser** -- no browser automation tool was available
+    this session (Claude in Chrome wasn't connected). This is a meaningful
+    gap for a step this size (real ZIP/geolocation lookups, the parallel
+    fetch, the refresh effects, and the share button are all exercised for
+    the first time here) -- worth a real interactive pass before treating
+    this as fully confirmed, the way earlier PLAN.md items were.
 
 ### 4. Content rewrite
 

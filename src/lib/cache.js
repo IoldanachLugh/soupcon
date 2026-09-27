@@ -1,5 +1,8 @@
 export const CACHE_TTL_MS = 60 * 60 * 1000;
 export const ZIP_CACHE_PREFIX = "frtcon_zip_lookup_";
+// No longer written (SOUP_PLAN.md item 3 replaced the zone lookup with
+// getLocationLabel's gridpoint cache) -- kept only so sweepExpiredCache
+// below can still clean up any leftover keys from before that change.
 export const ZONE_CACHE_PREFIX = "frtcon_zone_lookup_";
 export const ALERTS_CACHE_PREFIX = "frtcon_alerts_";
 export const ALERTS_CACHE_TTL_MS = 5 * 60 * 1000;
@@ -54,10 +57,6 @@ export function setCacheItem(key, value) {
   } catch {
     // Ignore storage failures.
   }
-}
-
-export function makeZoneCacheKey(lat, lon) {
-  return `${ZONE_CACHE_PREFIX}${Number(lat).toFixed(3)},${Number(lon).toFixed(3)}`;
 }
 
 export function makeAlertsCacheKey(lat, lon) {

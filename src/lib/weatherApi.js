@@ -1,7 +1,6 @@
 import {
   getCacheItem,
   setCacheItem,
-  makeZoneCacheKey,
   makeAlertsCacheKey,
   makeGridpointCacheKey,
   makeHourlyForecastCacheKey,
@@ -41,12 +40,6 @@ export const STALE_ON_VISIBLE_MS = 60 * 1000;
 
 export function isValidZip(zip) {
   return /^\d{5}$/.test(zip.trim());
-}
-
-export function extractZoneIdFromUrl(url) {
-  if (!url) return null;
-  const parts = url.split("/");
-  return parts[parts.length - 1] || null;
 }
 
 // Carries the technical detail (status code, URL, whether it was a timeout)
@@ -153,56 +146,6 @@ export async function getLatLonFromZip(zip, { signal } = {}) {
   return value;
 }
 
-export async function getZoneByPoint(lat, lon, { signal } = {}) {
-  const cacheKey = makeZoneCacheKey(lat, lon);
-  const cached = getCacheItem(cacheKey);
-  if (cached) {
-    return cached;
-  }
-
-  // Documented path per NWS's own API docs: /points/{lat},{lon} resolves a
-  // coordinate to its forecast zone URL, then /zones/forecast/{zoneId}
-  // gets that zone's details. (An earlier version of this function tried
-  // an undocumented /zones/forecast?point= shortcut first, which wasn't in
-  // NWS's published spec and had no guaranteed behavior if NWS ever changed
-  // or removed it -- not worth the risk for saving one request.)
-  let pointData;
-  try {
-    pointData = await fetchJson(`${WEATHER_GOV_BASE}/points/${lat},${lon}`, { signal });
-  } catch (err) {
-    const message = friendlyMessage(err, "This location isn't covered by the National Weather Service.");
-    throw message ? new Error(message) : err;
-  }
-  const zoneUrl = pointData?.properties?.forecastZone;
-  const zoneId = extractZoneIdFromUrl(zoneUrl);
-
-  if (!zoneId) {
-    throw new Error("Could not determine the NWS forecast zone for this location.");
-  }
-
-  let zoneData;
-  try {
-    zoneData = await fetchJson(`${WEATHER_GOV_BASE}/zones/forecast/${zoneId}`, { signal });
-  } catch (err) {
-    // No notFoundMessage here: a 404 at this step would be unexpected (the
-    // zoneId just came from a successful /points/ response, not user
-    // input), so it isn't a distinct "not covered" case -- just falls
-    // through to the generic message like any other failure.
-    const message = friendlyMessage(err);
-    throw message ? new Error(message) : err;
-  }
-
-  const value = {
-    zoneId,
-    zoneName: zoneData?.properties?.name || zoneId,
-  };
-
-  // Cached by rounded lat/lon (see makeZoneCacheKey) so a repeat visit from
-  // roughly the same spot skips both requests above entirely for an hour.
-  setCacheItem(cacheKey, value);
-  return value;
-}
-
 export async function getActiveAlertsByPoint(lat, lon, { signal, skipCache = false } = {}) {
   // Deliberately NOT /alerts/active/zone/{forecastZoneId}: that endpoint
   // only returns alerts coded to the forecast zone (UGC "xxZnnn"). Some
@@ -235,11 +178,21 @@ export async function getActiveAlertsByPoint(lat, lon, { signal, skipCache = fal
   return value;
 }
 
-// Shared by getHourlyForecast/getExtendedForecast/getCurrentConditions
-// below -- all three need the same /points response (it carries the grid
-// office/x/y used to build both forecast URLs, plus the observation
-// stations URL), so this fetches and caches it once instead of each of the
-// three hitting /points separately for the same location.
+// Shared by getLocationLabel/getHourlyForecast/getExtendedForecast/
+// getCurrentConditions below -- all four need the same /points response (it
+// carries the grid office/x/y used to build both forecast URLs, the
+// observation stations URL, and the location label), so this fetches and
+// caches it once instead of each hitting /points separately for the same
+// location. App.jsx's runLookupFromCoordinates calls all four in parallel
+// via Promise.all with a shared AbortSignal, so on a cold cache they'd
+// otherwise all race to fetch the exact same /points URL at once --
+// gridpointRequestsInFlight collapses that into a single request, with
+// later callers awaiting the first one's in-flight promise instead of
+// starting their own. (Relies on this app's actual call pattern always
+// passing the same signal to concurrent calls for the same location --
+// not a general-purpose per-caller-cancellation guarantee.)
+const gridpointRequestsInFlight = new Map();
+
 async function getGridpointInfo(lat, lon, { signal } = {}) {
   const cacheKey = makeGridpointCacheKey(lat, lon);
   const cached = getCacheItem(cacheKey, GRIDPOINT_CACHE_TTL_MS);
@@ -247,40 +200,61 @@ async function getGridpointInfo(lat, lon, { signal } = {}) {
     return cached;
   }
 
-  let pointData;
+  const inFlight = gridpointRequestsInFlight.get(cacheKey);
+  if (inFlight) {
+    return inFlight;
+  }
+
+  const requestPromise = (async () => {
+    let pointData;
+    try {
+      pointData = await fetchJson(`${WEATHER_GOV_BASE}/points/${lat},${lon}`, { signal });
+    } catch (err) {
+      const message = friendlyMessage(err, "This location isn't covered by the National Weather Service.");
+      throw message ? new Error(message) : err;
+    }
+
+    const p = pointData?.properties ?? {};
+    if (!p.forecastHourly || !p.forecast) {
+      throw new Error("Could not determine the NWS forecast grid for this location.");
+    }
+
+    const relLoc = p.relativeLocation?.properties;
+
+    const value = {
+      forecastHourlyUrl: p.forecastHourly,
+      forecastUrl: p.forecast,
+      observationStationsUrl: p.observationStations || null,
+      // City/state read better in a rain-forecast app than a forecast zone
+      // name (e.g. "Seattle, WA" vs. "King County") -- SOUPCON uses this
+      // instead of the FRTCON-era getZoneByPoint name.
+      locationLabel: relLoc?.city && relLoc?.state ? `${relLoc.city}, ${relLoc.state}` : null,
+    };
+
+    setCacheItem(cacheKey, value);
+    return value;
+  })();
+
+  gridpointRequestsInFlight.set(cacheKey, requestPromise);
   try {
-    pointData = await fetchJson(`${WEATHER_GOV_BASE}/points/${lat},${lon}`, { signal });
-  } catch (err) {
-    const message = friendlyMessage(err, "This location isn't covered by the National Weather Service.");
-    throw message ? new Error(message) : err;
+    return await requestPromise;
+  } finally {
+    gridpointRequestsInFlight.delete(cacheKey);
   }
-
-  const p = pointData?.properties ?? {};
-  if (!p.forecastHourly || !p.forecast) {
-    throw new Error("Could not determine the NWS forecast grid for this location.");
-  }
-
-  const relLoc = p.relativeLocation?.properties;
-
-  const value = {
-    forecastHourlyUrl: p.forecastHourly,
-    forecastUrl: p.forecast,
-    observationStationsUrl: p.observationStations || null,
-    // City/state read better in a rain-forecast app than a forecast zone
-    // name (e.g. "Duluth, MN" vs. "Northern St. Louis County") -- SOUPCON
-    // uses this instead of the FRTCON-era getZoneByPoint name.
-    locationLabel: relLoc?.city && relLoc?.state ? `${relLoc.city}, ${relLoc.state}` : null,
-  };
-
-  setCacheItem(cacheKey, value);
-  return value;
 }
 
-export async function getHourlyForecast(lat, lon, { signal } = {}) {
+export async function getLocationLabel(lat, lon, { signal } = {}) {
+  const gridpoint = await getGridpointInfo(lat, lon, { signal });
+  return gridpoint.locationLabel || "this location";
+}
+
+export async function getHourlyForecast(lat, lon, { signal, skipCache = false } = {}) {
   const cacheKey = makeHourlyForecastCacheKey(lat, lon);
-  const cached = getCacheItem(cacheKey, HOURLY_FORECAST_CACHE_TTL_MS);
-  if (cached) {
-    return cached;
+  if (!skipCache) {
+    const cached = getCacheItem(cacheKey, HOURLY_FORECAST_CACHE_TTL_MS);
+    if (cached) {
+      return cached;
+    }
   }
 
   const gridpoint = await getGridpointInfo(lat, lon, { signal });
@@ -298,11 +272,13 @@ export async function getHourlyForecast(lat, lon, { signal } = {}) {
   return value;
 }
 
-export async function getExtendedForecast(lat, lon, { signal } = {}) {
+export async function getExtendedForecast(lat, lon, { signal, skipCache = false } = {}) {
   const cacheKey = makeExtendedForecastCacheKey(lat, lon);
-  const cached = getCacheItem(cacheKey, EXTENDED_FORECAST_CACHE_TTL_MS);
-  if (cached) {
-    return cached;
+  if (!skipCache) {
+    const cached = getCacheItem(cacheKey, EXTENDED_FORECAST_CACHE_TTL_MS);
+    if (cached) {
+      return cached;
+    }
   }
 
   const gridpoint = await getGridpointInfo(lat, lon, { signal });
@@ -355,11 +331,13 @@ async function findFreshObservation(stationUrls, { signal } = {}) {
 // classifySoupcon already knows how to fall back to the current hourly
 // forecast period when observation is null, so a gap here shouldn't fail
 // the whole lookup the way a failed hourly/extended forecast fetch would.
-export async function getCurrentConditions(lat, lon, { signal } = {}) {
+export async function getCurrentConditions(lat, lon, { signal, skipCache = false } = {}) {
   const cacheKey = makeObservationCacheKey(lat, lon);
-  const cached = getCacheItem(cacheKey, OBSERVATION_CACHE_TTL_MS);
-  if (cached) {
-    return cached;
+  if (!skipCache) {
+    const cached = getCacheItem(cacheKey, OBSERVATION_CACHE_TTL_MS);
+    if (cached) {
+      return cached;
+    }
   }
 
   const gridpoint = await getGridpointInfo(lat, lon, { signal });

@@ -3,13 +3,16 @@ import "./styles.css";
 import {
   isValidZip,
   getLatLonFromZip,
-  getZoneByPoint,
+  getLocationLabel,
+  getHourlyForecast,
+  getExtendedForecast,
+  getCurrentConditions,
   getActiveAlertsByPoint,
   ALERTS_AUTO_REFRESH_MS,
   STALE_ON_VISIBLE_MS,
 } from "./lib/weatherApi";
 import { safeGetItem, safeSetItem } from "./lib/cache";
-import { determineFrtcon, pickRandomItems } from "./lib/frtcon";
+import { classifySoupcon, pickRandomItems } from "./lib/soupcon";
 import { alertMessages } from "./data/alertMessages";
 import { SnowOverlay } from "./components/SnowOverlay";
 import { FrtconBadge } from "./components/FrtconBadge";
@@ -159,8 +162,19 @@ export default function App() {
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [menuOpen]);
 
-  const frtcon = useMemo(() => {
-    return result?.alerts ? determineFrtcon(result.alerts) : null;
+  // SOUP_PLAN.md item 4 still owes this app soup-themed content --
+  // `alertMessages` is still the FRTCON-era French Toast copy, so the
+  // headline/title/commentary lines rendered below will read as French
+  // Toast flavor text under a SOUPCON-numbered badge until that item lands.
+  // This item is scoped to the data plumbing only (SOUPCON level in, right
+  // message picked out by that level), not the content itself.
+  const soupcon = useMemo(() => {
+    if (!result) return null;
+    return classifySoupcon({
+      hourlyPeriods: result.hourlyPeriods,
+      observation: result.observation,
+      extendedPeriods: result.extendedPeriods,
+    });
   }, [result]);
 
   // Computed here (rather than inside FrtconMessage) so the Share button can
@@ -169,25 +183,25 @@ export default function App() {
   // different random selection than what the user is actually looking at.
   // Re-randomizes only when the level itself changes, not on every
   // background refresh that leaves the level unchanged.
-  const frtconMessage = useMemo(() => {
-    if (!frtcon) return null;
-    const message = alertMessages[frtcon.level] || alertMessages[5];
+  const soupconMessage = useMemo(() => {
+    if (!soupcon) return null;
+    const message = alertMessages[soupcon.level] || alertMessages[5];
     return {
       headline: message.headline,
       title: message.title,
       lines: pickRandomItems(message.body, 4),
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [frtcon?.level]);
+  }, [soupcon?.level]);
 
-  const snowCount = frtcon
+  const snowCount = soupcon
     ? {
         1: 140,
         2: 100,
         3: 65,
         4: 30,
         5: 8,
-      }[frtcon.level] || 8
+      }[soupcon.level] || 8
     : 8;
 
   // Resolves to true if it actually landed a result, false otherwise
@@ -222,13 +236,18 @@ export default function App() {
       setError("");
 
       try {
-        // Fetched independently, not chained: getZoneByPoint is only needed
-        // for the human-readable zone name, while alerts come from a direct
-        // point query (see getActiveAlertsByPoint for why that's not a
-        // zone-based lookup) -- neither depends on the other's result, so
-        // there's no reason to wait for one before starting the other.
-        const [zone, alerts] = await Promise.all([
-          getZoneByPoint(lat, lon, { signal }),
+        // Fetched independently, not chained: none of these five depend on
+        // another's result (getLocationLabel/getHourlyForecast/
+        // getExtendedForecast/getCurrentConditions all share a single
+        // cached /points lookup internally -- see getGridpointInfo in
+        // weatherApi.js -- so this isn't 4 separate round trips in
+        // practice). Alerts still come from a direct point query (see
+        // getActiveAlertsByPoint for why that's not a zone-based lookup).
+        const [locationLabel, hourlyPeriods, extendedPeriods, observation, alerts] = await Promise.all([
+          getLocationLabel(lat, lon, { signal }),
+          getHourlyForecast(lat, lon, { signal }),
+          getExtendedForecast(lat, lon, { signal }),
+          getCurrentConditions(lat, lon, { signal }),
           getActiveAlertsByPoint(lat, lon, { signal, skipCache }),
         ]);
 
@@ -239,7 +258,10 @@ export default function App() {
           source: inputSource,
           lat,
           lon,
-          zone,
+          locationLabel,
+          hourlyPeriods,
+          extendedPeriods,
+          observation,
           alerts,
           fetchedAt: Date.now(),
         });
@@ -258,17 +280,30 @@ export default function App() {
   );
 
   // Shared by both refresh paths below (the interval and the
-  // visibilitychange catch-up). Deliberately bypasses the TTL cache
-  // (skipCache: true) rather than waiting for it to expire -- this is live
-  // weather data, so every refresh genuinely hits the network. Only applies
-  // its result if the location it was fetched for is still the one on
-  // screen -- guards against a slow refresh landing after the user has
-  // since searched somewhere else.
-  const refreshAlerts = useCallback((lat, lon) => {
-    return getActiveAlertsByPoint(lat, lon, { skipCache: true })
-      .then((alerts) => {
+  // visibilitychange catch-up). Deliberately bypasses each source's TTL
+  // cache (skipCache: true) rather than waiting for it to expire -- this is
+  // live weather data, so every refresh genuinely hits the network for all
+  // four sources, not just alerts, even though hourly/extended forecast
+  // have longer TTLs of their own (those TTLs matter for a *repeat* lookup
+  // of the same location within the cache window, not for how often this
+  // background refresh itself runs). Only applies its result if the
+  // location it was fetched for is still the one on screen -- guards
+  // against a slow refresh landing after the user has since searched
+  // somewhere else. A failure in any one of the four discards the whole
+  // update rather than partially applying it, same "silently keep the last
+  // good state" tradeoff the old alerts-only version made.
+  const refreshWeatherData = useCallback((lat, lon) => {
+    return Promise.all([
+      getHourlyForecast(lat, lon, { skipCache: true }),
+      getExtendedForecast(lat, lon, { skipCache: true }),
+      getCurrentConditions(lat, lon, { skipCache: true }),
+      getActiveAlertsByPoint(lat, lon, { skipCache: true }),
+    ])
+      .then(([hourlyPeriods, extendedPeriods, observation, alerts]) => {
         setResult((prev) =>
-          prev && prev.lat === lat && prev.lon === lon ? { ...prev, alerts, fetchedAt: Date.now() } : prev
+          prev && prev.lat === lat && prev.lon === lon
+            ? { ...prev, hourlyPeriods, extendedPeriods, observation, alerts, fetchedAt: Date.now() }
+            : prev
         );
       })
       .catch(() => {
@@ -277,28 +312,28 @@ export default function App() {
       });
   }, []);
 
-  // Keep alerts fresh for whatever location is currently displayed, without
-  // the user needing to manually re-search. Keyed on lat/lon (not zoneId)
-  // since alerts are now fetched by point, not by zone -- see
+  // Keep the SOUPCON data fresh for whatever location is currently
+  // displayed, without the user needing to manually re-search. Keyed on
+  // lat/lon (not zoneId) since data is fetched by point, not by zone -- see
   // getActiveAlertsByPoint. Note this interval (ALERTS_AUTO_REFRESH_MS) and
-  // the alerts cache TTL (ALERTS_CACHE_TTL_MS in lib/cache.js) are
-  // independently defined but currently equal; if either is ever tuned,
-  // check whether that's still the intended relationship.
+  // the alerts/observation cache TTLs (in lib/cache.js) are independently
+  // defined but currently equal; if either is ever tuned, check whether
+  // that's still the intended relationship.
   useEffect(() => {
     if (result?.lat == null || result?.lon == null) return undefined;
 
     const intervalId = setInterval(() => {
-      refreshAlerts(result.lat, result.lon);
+      refreshWeatherData(result.lat, result.lon);
     }, ALERTS_AUTO_REFRESH_MS);
 
     return () => clearInterval(intervalId);
-  }, [result?.lat, result?.lon, refreshAlerts]);
+  }, [result?.lat, result?.lon, refreshWeatherData]);
 
   // Mobile browsers throttle or freeze the setInterval above for background
   // tabs and suspended/installed PWAs, so it can't be trusted to catch up
   // promptly when the app is reopened from the background -- how quickly
   // (if at all) it fires again varies by browser. This app's whole point is
-  // never showing stale alerts, so when the page becomes visible again,
+  // never showing stale conditions, so when the page becomes visible again,
   // refresh immediately if the data on screen is already stale rather than
   // waiting on the interval.
   useEffect(() => {
@@ -307,13 +342,13 @@ export default function App() {
     function onVisibilityChange() {
       if (document.visibilityState !== "visible") return;
       if (result.fetchedAt == null || Date.now() - result.fetchedAt >= STALE_ON_VISIBLE_MS) {
-        refreshAlerts(result.lat, result.lon);
+        refreshWeatherData(result.lat, result.lon);
       }
     }
 
     document.addEventListener("visibilitychange", onVisibilityChange);
     return () => document.removeEventListener("visibilitychange", onVisibilityChange);
-  }, [result?.lat, result?.lon, result?.fetchedAt, refreshAlerts]);
+  }, [result?.lat, result?.lon, result?.fetchedAt, refreshWeatherData]);
 
   function handleUseBrowserLocation() {
     setSource("browser");
@@ -401,19 +436,25 @@ export default function App() {
   // status text to the clipboard and opens the sharer in a new tab, so the
   // user can paste it into the post once they get there.
   function handleShare() {
-    if (!frtcon || !frtconMessage || !result?.zone) return;
+    if (!soupcon || !soupconMessage || !result?.locationLabel) return;
 
     // Mirrors exactly what's rendered in the .frtcon-condition-status box
     // (FrtconMessage) -- headline, title, and the same randomized
     // commentary lines currently on screen -- rather than the shorter
-    // frtcon.title/frtcon.reason summary shown above it. No URL here --
+    // soupcon.title/soupcon.reason summary shown above it. No URL here --
     // the sharer.php dialog already attaches frtcon.com as a link card via
     // its own `u` param, so repeating it as plain text in the pasted body
     // would just duplicate it.
+    //
+    // Still says "French Toast Condition" and still shares frtcon.com --
+    // SOUP_PLAN.md items 4/7/8 own the content/domain rewrite; this item is
+    // scoped to the soupcon/soupconMessage data plumbing only. Flagging
+    // here since this particular call site wasn't explicitly named in
+    // those items' scope and shouldn't get missed when they land.
     const shareText = [
-      `${frtconMessage.headline} - ${result.zone.zoneName} is currently at French Toast Condition #${frtcon.level}.`,
-      frtconMessage.title,
-      ...frtconMessage.lines,
+      `${soupconMessage.headline} - ${result.locationLabel} is currently at French Toast Condition #${soupcon.level}.`,
+      soupconMessage.title,
+      ...soupconMessage.lines,
     ].join("\n");
 
     if (shareToastTimeoutRef.current) clearTimeout(shareToastTimeoutRef.current);
@@ -652,11 +693,11 @@ export default function App() {
           {error ? <div className="error-box">{error}</div> : null}
         </div>
 
-        {result && frtcon ? (
+        {result && soupcon ? (
           <div className="section-stack">
             <div className="card section-spacing">
               <div className="frtcon-status-row">
-                <FrtconBadge level={frtcon.level} />
+                <FrtconBadge level={soupcon.level} />
                 <span className="alert-tag">
                   {result.alerts.length} alert{result.alerts.length === 1 ? "" : "s"}
                 </span>
@@ -697,15 +738,15 @@ export default function App() {
               ) : null}
 
               <FrtconMessage
-                level={frtcon.level}
-                zoneName={result.zone.zoneName}
-                headline={frtconMessage.headline}
-                title={frtconMessage.title}
-                lines={frtconMessage.lines}
+                level={soupcon.level}
+                zoneName={result.locationLabel}
+                headline={soupconMessage.headline}
+                title={soupconMessage.title}
+                lines={soupconMessage.lines}
               />
 
-              <div className="frtcon-title-large">{frtcon.title}</div>
-              <p className="body-text">{frtcon.reason}</p>
+              <div className="frtcon-title-large">{soupcon.title}</div>
+              <p className="body-text">{soupcon.reason}</p>
 
               {result.fetchedAt ? (
                 <div className="frtcon-updated-at">
@@ -713,22 +754,15 @@ export default function App() {
                   {new Date(result.fetchedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
                 </div>
               ) : null}
-
-              {frtcon.matchingAlerts.length > 0 ? (
-                <div className="frtcon-matching-alerts">
-                  <div className="frtcon-matching-alerts-title">Winter alerts driving the score</div>
-                  <div>
-                    {frtcon.matchingAlerts.map(({ alert, classification }) => (
-                      <span key={alert.id} className="alert-tag">
-                        {classification.label}: {alert.properties.event}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
             </div>
 
             <div>
+              {/* This list of raw NWS alerts for the location is no longer
+                  what drives the SOUPCON score above (that's now forecast-
+                  based -- see soupcon.js) -- kept as an independent
+                  "what's actually active here" panel per SOUP_PLAN.md's
+                  open question on this, since flood-family alerts are
+                  still on-theme for a rain app. */}
               <div className="active-alerts-heading">Active Alerts</div>
               {result.alerts.length === 0 ? (
                 <div className="card">No active alerts were returned for this location.</div>
