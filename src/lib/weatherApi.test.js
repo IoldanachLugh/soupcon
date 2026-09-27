@@ -1,5 +1,11 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { getLocationLabel, getHourlyForecast, getCurrentConditions } from "./weatherApi";
+import {
+  getLocationLabel,
+  getHourlyForecast,
+  getCurrentConditions,
+  haversineMiles,
+  selectObservationStations,
+} from "./weatherApi";
 
 // fetch is stubbed per test with a URL -> handler map. localStorage isn't
 // available under vitest's node environment, so cache.js's try/catch makes
@@ -90,6 +96,10 @@ describe("getHourlyForecast", () => {
 
 describe("getCurrentConditions", () => {
   const stations = ["https://nws.test/st/A", "https://nws.test/st/B", "https://nws.test/st/C"];
+  // A, B, C at increasing distance, all well within the 60-mile radius of
+  // each test's lookup point (lat ~10, lon ~20). GeoJSON is [lon, lat].
+  const stationFeatures = (lat, lon) =>
+    stations.map((id, index) => ({ id, geometry: { coordinates: [lon, lat + 0.05 * (index + 1)] } }));
   const fresh = () => new Date(Date.now() - 10 * 60 * 1000).toISOString();
 
   it("requests all candidate stations at once, and prefers the nearest usable one", async () => {
@@ -97,7 +107,7 @@ describe("getCurrentConditions", () => {
     const fetchMock = stubFetch((url) => {
       if (url.includes("/points/")) return Promise.resolve(jsonResponse(POINTS));
       if (url === "https://nws.test/stations") {
-        return Promise.resolve(jsonResponse({ features: stations.map((id) => ({ id })) }));
+        return Promise.resolve(jsonResponse({ features: stationFeatures(10.004, 20.004) }));
       }
       if (url === "https://nws.test/st/A/observations/latest") return stationA.promise;
       if (url === "https://nws.test/st/B/observations/latest") {
@@ -127,7 +137,7 @@ describe("getCurrentConditions", () => {
     stubFetch((url) => {
       if (url.includes("/points/")) return Promise.resolve(jsonResponse(POINTS));
       if (url === "https://nws.test/stations") {
-        return Promise.resolve(jsonResponse({ features: stations.map((id) => ({ id })) }));
+        return Promise.resolve(jsonResponse({ features: stationFeatures(10.005, 20.005) }));
       }
       if (url === "https://nws.test/st/A/observations/latest") {
         return new Promise((resolve) =>
@@ -142,5 +152,49 @@ describe("getCurrentConditions", () => {
 
     const observation = await getCurrentConditions(10.005, 20.005);
     expect(observation.textDescription).toBe("Snow");
+  });
+});
+
+describe("haversineMiles", () => {
+  it("matches a known distance", () => {
+    // Seattle -> Portland, OR is ~145 miles great-circle.
+    expect(haversineMiles(47.6062, -122.3321, 45.5152, -122.6784)).toBeCloseTo(145, -1);
+    expect(haversineMiles(40, -100, 40, -100)).toBe(0);
+  });
+});
+
+describe("selectObservationStations", () => {
+  // One degree of latitude is ~69 miles, so offsets below are easy to
+  // reason about: 0.5 deg ~ 35 mi, 1 deg ~ 69 mi, 2 deg ~ 138 mi.
+  const station = (id, latOffset) => ({ id, geometry: { coordinates: [-100, 40 + latOffset] } });
+
+  it("sorts by computed distance rather than trusting list order", () => {
+    const picked = selectObservationStations([station("far", 0.6), station("near", 0.1), station("mid", 0.3)], 40, -100);
+    expect(picked).toEqual(["near", "mid", "far"]);
+  });
+
+  it("drops stations beyond 60 miles when enough are within range", () => {
+    const picked = selectObservationStations(
+      [station("a", 0.1), station("b", 0.2), station("c", 0.5), station("far", 1)],
+      40,
+      -100
+    );
+    expect(picked).toEqual(["a", "b", "c"]);
+  });
+
+  it("always includes at least the nearest 2, however far", () => {
+    // Only one station within 60 miles (the rural case, e.g. Ely, NV).
+    const picked = selectObservationStations([station("near", 0.1), station("far", 1), station("farther", 2)], 40, -100);
+    expect(picked).toEqual(["near", "far"]);
+  });
+
+  it("caps at 5 even when more are within range", () => {
+    const features = Array.from({ length: 9 }, (_, index) => station(`s${index}`, 0.05 * (index + 1)));
+    expect(selectObservationStations(features, 40, -100)).toEqual(["s0", "s1", "s2", "s3", "s4"]);
+  });
+
+  it("sorts stations without coordinates last, usable only toward the minimum", () => {
+    const picked = selectObservationStations([{ id: "unknown" }, station("near", 0.1)], 40, -100);
+    expect(picked).toEqual(["near", "unknown"]);
   });
 });

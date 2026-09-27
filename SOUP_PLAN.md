@@ -929,6 +929,43 @@ precipitation events the same?"
 - **Not verified live in a browser** — logic changes only, verified via
   tests and live-API runs of the classifier.
 
+### 17. Observation station radius + snow pill wording — ✅ FIXED
+
+- **Ask (per user), following item 16's review:** "why do we need 5
+  stations? Can we do a haversine and only include stations that are
+  within 60 miles (but use a minimum of 2 stations regardless). Also fix
+  the 'snow soon' wording." Also confirmed: the 90-minute observation
+  age limit is fine as-is.
+- **Why 5 (answered):** an arbitrary cap from item 2, there because the
+  nearest station is often stale or blank. Kept as an upper bound rather
+  than dropped: with the stations fetched in parallel (item 16), an
+  uncapped 60-mile radius would mean dozens of requests per lookup and
+  per 5-minute refresh in dense areas (live counts within 60 miles:
+  Seattle 41, Minneapolis 22, Chicago 14).
+- **Done:**
+  - New exported `haversineMiles` and `selectObservationStations` in
+    `weatherApi.js`: sorts NWS's station list by computed distance (it
+    isn't strictly sorted — confirmed live for Seattle, Minneapolis,
+    Chicago), takes everything within 60 miles, at least the nearest 2
+    regardless of distance, at most 5. Stations with no coordinates sort
+    last and can only fill the minimum.
+  - Verified live: Seattle/Chicago → 5 stations within 24 miles; Ely, NV
+    → its one in-range station plus one at 64 mi; Big Bend, TX → 26 mi +
+    72 mi; Jordan, MT → 5 within 53 mi, none with a usable reading, so it
+    correctly fell back to the hourly forecast.
+  - **Snow pill wording:** reads "Snow! Check FRTCON!" at level 1
+    (already snowing; wording chosen by owner); "Snow soon, check your FRTCON!" is kept for
+    levels 2/3.
+  - 6 new tests (selection rules + haversine sanity check); existing
+    station tests given coordinates. 51/51 passing; lint and build pass.
+  - **Not verified live in a browser** (the pill wording change is JSX
+    only).
+- **Deliberately left as-is (per owner, "leave that alone for now"):** an
+  observation with a positive `precipitationLastHour` but no
+  precipitation wording in `textDescription` still defaults to `"rain"`
+  (`observationPrecipType`) — the reading has no type of its own. Also
+  confirmed fine as-is: the 90-minute observation age limit.
+
 ---
 
 ## Suggested order

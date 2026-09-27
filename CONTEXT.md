@@ -150,8 +150,13 @@ existing origin server rather than standing up anything new:
   rain, freezes only on contact).
 - **Nearest-station staleness:** a station listed as "the" observation
   station for a point isn't guaranteed to have reported recently.
-  `getCurrentConditions` (`weatherApi.js`) fetches up to 5 of the nearest
-  stations *in parallel* (sequentially, with a 10s timeout each, a slow
+  `getCurrentConditions` (`weatherApi.js`) picks candidate stations by
+  haversine distance from the lookup point (`selectObservationStations`:
+  all within 60 miles, but at least the nearest 2 however far — rural
+  points can have just one in range — and at most 5, since dense areas
+  have dozens in range, e.g. 41 around Seattle; sorted by computed
+  distance because NWS's list order is only roughly by proximity), fetches
+  them *in parallel* (sequentially, with a 10s timeout each, a slow
   NWS could hold the whole lookup for ~a minute) and uses the nearest one
   with a reading within 90
   minutes *that actually carries weather* (a non-blank `textDescription`

@@ -28,8 +28,9 @@ Live at [soupcon.org](https://soupcon.org).
   share dialog in a new tab, so the user pastes the text into their post.
   Facebook's `sharer.php` only accepts a URL (no custom text), which is why
   the text goes via clipboard; the link card comes from the `u` param.
-- Shows a "Snow soon, check your FRTCON!" pill next to the Share button
-  whenever snow (not rain) is the driving forecast — a cross-promo link to
+- Shows a "Snow soon, check your FRTCON!" pill ("Snow! Check FRTCON!"
+  when it's already snowing) next to the Share button whenever
+  snow (not rain) is the driving forecast — a cross-promo link to
   [frtcon.com](https://frtcon.com), the winter-storm-severity sibling app
   this fork started from.
 - Installable as a home-screen app on Android (via the in-app "Install App"
@@ -61,8 +62,9 @@ this is a real judgment call rather than a canonical-code lookup — the
 keyword lists were checked against live NWS output across several cities
 before being trusted, but an unusual phrasing could still be missed.
 "Currently raining" prefers a real station observation when one is fresh
-enough (within 90 minutes, checked across up to 5 nearby stations at once,
-nearest usable one wins) and
+enough (within 90 minutes, checked across nearby stations at once —
+every station within 60 miles, at least the nearest 2 however far, at most
+5 — nearest usable one wins) and
 actually reports weather (many stations post timely observations with a
 blank description); if none qualifies, it falls back to the current hourly
 forecast period instead — but only counts it as "raining right now" at a

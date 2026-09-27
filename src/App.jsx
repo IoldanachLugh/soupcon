@@ -739,7 +739,8 @@ export default function App() {
                     rel="noopener noreferrer"
                     className="snow-crosslink-pill"
                   >
-                    Snow soon, check your FRTCON!
+                    {/* Level 1 means it's already snowing, not "soon". */}
+                    {soupcon.level === 1 ? "Snow! Check FRTCON!" : "Snow soon, check your FRTCON!"}
                   </a>
                 ) : null}
               </div>

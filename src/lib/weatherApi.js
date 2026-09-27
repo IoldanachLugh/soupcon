@@ -315,12 +315,56 @@ export async function getExtendedForecast(lat, lon, { signal, skipCache = false 
 
 // A station can be listed as "the" observation station for a point and
 // still not have reported in hours (or ever) -- NWS doesn't guarantee
-// freshness, just proximity order. Rather than trust station #1 blindly
-// (SOUP_PLAN.md's nearest-station-staleness open question), this tries a
-// few of the nearest stations in order and takes the first one with a
-// reading recent enough to trust for "is it raining right now."
+// freshness. Rather than trust station #1 blindly (SOUP_PLAN.md's
+// nearest-station-staleness open question), this tries a few of the
+// nearest stations and takes the nearest one with a reading recent enough
+// to trust for "is it raining right now."
+//
+// Which stations count as "nearby" (SOUP_PLAN.md item 17, per owner):
+// everything within OBSERVATION_STATION_RADIUS_MILES, but always at least
+// MIN_OBSERVATION_STATIONS_TO_TRY (the nearest ones, however far -- rural
+// points can have only one station within 60 miles, e.g. Ely, NV), and
+// never more than MAX_OBSERVATION_STATIONS_TO_TRY, since they're all
+// fetched at once and dense areas have dozens in range (41 around Seattle
+// when checked live).
+const OBSERVATION_STATION_RADIUS_MILES = 60;
+const MIN_OBSERVATION_STATIONS_TO_TRY = 2;
 const MAX_OBSERVATION_STATIONS_TO_TRY = 5;
 const OBSERVATION_MAX_AGE_MS = 90 * 60 * 1000;
+
+const EARTH_RADIUS_MILES = 3958.8;
+
+export function haversineMiles(lat1, lon1, lat2, lon2) {
+  const toRad = (deg) => (deg * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return 2 * EARTH_RADIUS_MILES * Math.asin(Math.sqrt(a));
+}
+
+// Sorts by computed distance rather than trusting NWS's list order, which
+// is only roughly by proximity (confirmed live: not strictly sorted for
+// Seattle, Minneapolis, or Chicago). A station with no usable coordinates
+// sorts last (Array.prototype.sort is stable, so NWS's order is kept among
+// those) -- it can still be picked to reach the minimum, but never counts
+// as within the radius.
+export function selectObservationStations(features, lat, lon) {
+  const byDistance = (features || [])
+    .filter((feature) => feature?.id)
+    .map((feature) => {
+      const [stationLon, stationLat] = feature.geometry?.coordinates ?? [];
+      const miles =
+        typeof stationLat === "number" && typeof stationLon === "number"
+          ? haversineMiles(lat, lon, stationLat, stationLon)
+          : Infinity;
+      return { url: feature.id, miles };
+    })
+    .sort((a, b) => a.miles - b.miles);
+
+  const withinRadius = byDistance.filter((station) => station.miles <= OBSERVATION_STATION_RADIUS_MILES).length;
+  const count = Math.min(MAX_OBSERVATION_STATIONS_TO_TRY, Math.max(MIN_OBSERVATION_STATIONS_TO_TRY, withinRadius));
+  return byDistance.slice(0, count).map((station) => station.url);
+}
 
 // Fresh isn't enough on its own: plenty of stations (including some major
 // airports, e.g. KMDW when checked live) post timely observations with an
@@ -351,7 +395,7 @@ function isUsableObservation(props) {
 // kept by picking from the results in station order, not arrival order.
 async function findFreshObservation(stationUrls, { signal } = {}) {
   const observations = await Promise.all(
-    stationUrls.slice(0, MAX_OBSERVATION_STATIONS_TO_TRY).map((stationUrl) =>
+    stationUrls.map((stationUrl) =>
       fetchJson(`${stationUrl}/observations/latest`, { signal })
         .then((obsData) => obsData?.properties ?? null)
         // This station has no recent observation at all (common -- not
@@ -390,7 +434,7 @@ export async function getCurrentConditions(lat, lon, { signal, skipCache = false
     return null;
   }
 
-  const stationUrls = (stationsData?.features || []).map((feature) => feature?.id).filter(Boolean);
+  const stationUrls = selectObservationStations(stationsData?.features, lat, lon);
   const value = await findFreshObservation(stationUrls, { signal });
 
   // Deliberately not caching a null result: getCacheItem can't distinguish
