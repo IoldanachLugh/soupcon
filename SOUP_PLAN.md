@@ -326,7 +326,7 @@ used by `App.jsx` until item 5). Pure functions, no React/DOM dependency
     print view, and the on-screen condition box's new copy, haven't been
     visually confirmed, only reviewed as code/JSX.
 
-### 5. Component/file renames
+### 5. Component/file renames — ✅ FIXED
 
 - `src/lib/frtcon.js` → `src/lib/soupcon.js` (already done in item 1).
 - `FrtconBadge.jsx` → `SoupconBadge.jsx`, `FrtconMessage.jsx` →
@@ -334,6 +334,62 @@ used by `App.jsx` until item 5). Pure functions, no React/DOM dependency
 - `RecipeModal.jsx` — title text, no structural change expected.
 - Resolve `SnowOverlay.jsx`'s fate (open question above) and
   `AlertCard.jsx`'s fate (tied to item 3's decision).
+- **Done:**
+  - **`frtcon.js` deleted.** Confirmed zero remaining importers (item 3
+    already stopped using it); `soupcon.js`'s own comment about the
+    copied-not-imported `pickRandomItems` updated to reflect that it's now
+    the only copy, not "still shared until item 5."
+  - **`FrtconBadge.jsx` → `SoupconBadge.jsx`**, **`FrtconMessage.jsx` →
+    `SoupconMessage.jsx`**: renamed exports, hardcoded label text fixed
+    ("FRTCON N" → "SOUPCON N"; "French Toast Condition #N" → "Soup
+    Condition #N"), and the `zoneName` prop renamed to `locationLabel` to
+    match what `App.jsx` actually passes (a mismatch left over from item
+    3's data plumbing, cleaned up now that this is the component-renames
+    step). `SoupconMessage`'s footnote -- which specifically referenced
+    "the French Toast Alert System" (a real thing FRTCON was parodying) --
+    was rewritten rather than find-replaced, since that sentence describes
+    a completely different concept for SOUPCON: now reads "* #SOUPCON only
+    estimates whether rain is likely to disrupt your day where you live.
+    It does not measure total rainfall, storm severity, or anything
+    outside this 5-level rain-likelihood scale." CSS class names on both
+    (`.frtcon-badge`, `.frtcon-condition-status`, etc.) deliberately left
+    untouched -- that's item 6, not this one.
+  - **`SnowOverlay.jsx` → `RainOverlay.jsx`** (resolves the open question):
+    falling snowflake glyphs replaced with falling rain-streak `<span>`s
+    (thin gradient lines, faster/straighter fall, no horizontal drift --
+    rain doesn't sway side-to-side the way snow does). `.snow-overlay` →
+    `.rain-overlay` and `@keyframes snowFall` → `@keyframes rainFall` in
+    `styles.css` (a required part of this rename, not deferred to item 6,
+    since the old class/keyframe would otherwise be orphaned dead CSS the
+    moment the component using them was renamed).
+    - **Density mapping also revisited, not just the visual:** FRTCON
+      showed snow at every level, even level 5 ("all clear"), as a
+      year-round mascot effect independent of severity. For SOUPCON,
+      showing rain falling on screen when the score explicitly says "no
+      rain expected" (levels 4/5) would contradict the app's own message,
+      so those two levels now show zero rain rather than reusing FRTCON's
+      old "always show at least a little something" floor of 8. Levels
+      1-3 keep a declining-but-nonzero mapping (140/90/40) reflecting
+      decreasing rain urgency. Renamed `snowCount` → `rainCount`
+      accordingly.
+  - **`AlertCard.jsx`:** no changes -- already resolved in item 3 (kept,
+    decoupled from the score), and it has no FRTCON-specific naming to
+    rename in the first place.
+  - **`RecipeModal.jsx`:** no further changes needed here specifically (its
+    `"Wait."` special-case cleanup already happened in item 4, as a direct
+    consequence of the recipe content swap); title text already flows
+    through `RECIPE.title` automatically.
+  - Confirmed via repo-wide grep: no remaining `FrtconBadge`/
+    `FrtconMessage`/`SnowOverlay`/`snowCount`/`lib/frtcon` references
+    anywhere. Remaining `FRTCON`/`French Toast` hits are all in code
+    comments (historical "unlike FRTCON..." explanations, fine to keep
+    indefinitely) or in `styles.css` comments describing still-`.frtcon-*`
+    -named CSS (item 6) -- nothing user-facing left unaddressed.
+  - `npm run lint`, `npm run test` (19/19), and `npm run build` all pass.
+  - **Not verified live in a browser** (same gap as items 3/4 -- Claude in
+    Chrome still isn't connected this session): the rain visual itself
+    (density, speed, whether it reads as rain rather than noise) is
+    reviewed as code/CSS only, not seen rendered.
 
 ### 6. CSS renames — `src/styles.css`
 

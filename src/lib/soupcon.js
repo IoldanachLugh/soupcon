@@ -128,10 +128,9 @@ export function classifySoupcon({ hourlyPeriods = [], observation = null, extend
   };
 }
 
-// Copied from the old frtcon.js rather than importing it -- frtcon.js is
-// no longer imported anywhere as of SOUP_PLAN.md item 3, but the file
-// itself is still in place until item 5 deletes it (this fork works one
-// plan item at a time), at which point this copy becomes the only one.
+// Copied from the old frtcon.js (deleted in SOUP_PLAN.md item 5) rather
+// than moved -- this was already the only copy in use since item 3
+// stopped importing frtcon.js, item 5 just removed the now-dead file.
 export function pickRandomItems(items, count) {
   const pool = [...items];
   for (let i = pool.length - 1; i > 0; i -= 1) {

@@ -64,15 +64,12 @@ div[role="dialog"] {
   text-align: left;
 }
 
-@keyframes snowFall {
+@keyframes rainFall {
   0% {
-    transform: translateY(-10px) translateX(0px);
-  }
-  50% {
-    transform: translateY(50vh) translateX(18px);
+    transform: translateY(-20px);
   }
   100% {
-    transform: translateY(100vh) translateX(-18px);
+    transform: translateY(100vh);
   }
 }
 
@@ -131,7 +128,7 @@ div[role="dialog"] {
   text-align: center;
 }
 
-.snow-overlay {
+.rain-overlay {
   position: fixed;
   inset: 0;
   width: 100%;

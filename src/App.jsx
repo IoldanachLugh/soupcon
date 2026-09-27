@@ -14,9 +14,9 @@ import {
 import { safeGetItem, safeSetItem } from "./lib/cache";
 import { classifySoupcon, pickRandomItems } from "./lib/soupcon";
 import { soupMessages } from "./data/soupMessages";
-import { SnowOverlay } from "./components/SnowOverlay";
-import { FrtconBadge } from "./components/FrtconBadge";
-import { FrtconMessage } from "./components/FrtconMessage";
+import { RainOverlay } from "./components/RainOverlay";
+import { SoupconBadge } from "./components/SoupconBadge";
+import { SoupconMessage } from "./components/SoupconMessage";
 import { AlertCard } from "./components/AlertCard";
 import { RecipeModal } from "./components/RecipeModal";
 import { IOSInstallHelp } from "./components/IOSInstallHelp";
@@ -171,7 +171,7 @@ export default function App() {
     });
   }, [result]);
 
-  // Computed here (rather than inside FrtconMessage) so the Share button can
+  // Computed here (rather than inside SoupconMessage) so the Share button can
   // reuse the exact headline/title/commentary lines already on screen,
   // instead of calling pickRandomItems a second time and sharing a
   // different random selection than what the user is actually looking at.
@@ -188,15 +188,20 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [soupcon?.level]);
 
-  const snowCount = soupcon
+  // Unlike FRTCON's snow (a year-round mascot effect regardless of level),
+  // rain falling on screen when the score says "no rain expected" (levels
+  // 4/5) would actively contradict what the app just told the user -- so
+  // those two levels show none, rather than reusing FRTCON's old "always
+  // show a little something, even at the calmest level" minimum of 8.
+  const rainCount = soupcon
     ? {
         1: 140,
-        2: 100,
-        3: 65,
-        4: 30,
-        5: 8,
-      }[soupcon.level] || 8
-    : 8;
+        2: 90,
+        3: 40,
+        4: 0,
+        5: 0,
+      }[soupcon.level] ?? 0
+    : 0;
 
   // Resolves to true if it actually landed a result, false otherwise
   // (failed, or superseded by a newer lookup before it finished) -- callers
@@ -433,7 +438,7 @@ export default function App() {
     if (!soupcon || !soupconMessage || !result?.locationLabel) return;
 
     // Mirrors exactly what's rendered in the .frtcon-condition-status box
-    // (FrtconMessage) -- headline, title, and the same randomized
+    // (SoupconMessage) -- headline, title, and the same randomized
     // commentary lines currently on screen -- rather than the shorter
     // soupcon.title/soupcon.reason summary shown above it. No URL here --
     // the sharer.php dialog already attaches frtcon.com as a link card via
@@ -584,7 +589,7 @@ export default function App() {
   return (
     <>
     <div className="frtcon-app-root app-page">
-      <SnowOverlay count={snowCount} />
+      <RainOverlay count={rainCount} />
 
       <div className="app-wrap">
         <div className="app-header">
@@ -690,7 +695,7 @@ export default function App() {
           <div className="section-stack">
             <div className="card section-spacing">
               <div className="frtcon-status-row">
-                <FrtconBadge level={soupcon.level} />
+                <SoupconBadge level={soupcon.level} />
                 <span className="alert-tag">
                   {result.alerts.length} alert{result.alerts.length === 1 ? "" : "s"}
                 </span>
@@ -730,9 +735,9 @@ export default function App() {
                 </span>
               ) : null}
 
-              <FrtconMessage
+              <SoupconMessage
                 level={soupcon.level}
-                zoneName={result.locationLabel}
+                locationLabel={result.locationLabel}
                 headline={soupconMessage.headline}
                 title={soupconMessage.title}
                 lines={soupconMessage.lines}
