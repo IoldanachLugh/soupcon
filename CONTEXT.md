@@ -33,21 +33,69 @@ and the color palette were all the owner's own calls, not Claude's).
 
 ## Infrastructure
 
-**Not yet set up.** `soupcon.org` has no deployment yet — this section will
-get filled in with real facts (domain registration status, DNS zone,
-Apache vhost path, certbot/cert details, Cloudflare Tunnel ingress rule)
-once that work actually happens (`SOUP_PLAN.md` items 12-13), not before.
+**Live.** `soupcon.org` is deployed and serving real traffic through the
+same Cloudflare Tunnel frtcon.com uses (tunnel `dd742d1d-...`), reusing the
+existing origin server rather than standing up anything new:
 
-Planned shape, per `SOUP_PLAN.md`: the same general pattern frtcon.com
-uses (Cloudflare Tunnel + Apache origin + certbot via
-`certbot-dns-cloudflare`), likely the *same* Cloudflare account and
-possibly the same Tunnel (an existing tunnel can route multiple hostnames —
-see the cloudflared gotcha below), but as its **own** vhost, its **own**
-TLS certificate (not an `--expand` of frtcon.com's cert, since these are
-unrelated sites), and its own DNS zone/registration. Do not assume any of
-frtcon.com's specific infrastructure facts (its tunnel ID, its vhost path,
-its cert SANs) apply here until item 12 actually sets this fork's own
-infrastructure up and this section is rewritten with what's actually true.
+- **Tunnel config** (`cloudflared`'s `config.yml`) has one ingress rule per
+  hostname, each pointing at a different loopback port on the origin:
+  `thoughtleap.com`/`www.thoughtleap.com` → `127.0.0.1:8080`,
+  `frtcon.com`/`www.frtcon.com`/`frtcon.thoughtleap.com` → `127.0.0.1:8081`,
+  and `soupcon.org`/`www.soupcon.org`/`soupcon.thoughtleap.com` →
+  `127.0.0.1:8082`. (`thoughtleap.com` is the owner's own personal/portfolio
+  domain, sharing this same origin and tunnel — not previously documented
+  here since it predates this fork.) A catch-all `service: http_status:404`
+  rule is last, per cloudflared's requirement.
+- **No TLS on the origin at all, by design.** Every one of those `service:`
+  URLs is `http://`, not `https://` — cloudflared speaks plain HTTP to
+  Apache on all three ports. This is safe specifically because none of
+  these ports are exposed publicly (loopback-only, no port forwarding, no
+  public IP — same model the original FRTCON infra summary described);
+  Cloudflare's edge is what terminates the browser-facing HTTPS connection,
+  completely independent of whatever the origin does. **No certbot
+  certificate exists for soupcon.org, and none is needed** — this was a
+  real question raised while building this fork's infra, resolved by
+  checking the actual tunnel config rather than assuming frtcon.com's
+  pattern (frtcon.com's own ingress rule turns out to be plain HTTP too,
+  not HTTPS-to-`:443` as an earlier draft of this document assumed before
+  the actual config was reviewed).
+- **Apache vhost**: `<VirtualHost 127.0.0.1:8082>` (a corresponding
+  `Listen 127.0.0.1:8082` is in `/etc/apache2/ports.conf`), `ServerName
+  soupcon.thoughtleap.com` with `ServerAlias soupcon.org www.soupcon.org`,
+  `DocumentRoot /home/soupcon/soupcon.org`, `AllowOverride All` (needed for
+  `.htaccess`'s rewrite/header rules), and `Require ip 127.0.0.1 ::1` on
+  the directory as defense-in-depth on top of the loopback-only bind.
+- **Deploy path**: `/home/soupcon/soupcon.org/` is the production root,
+  with a `dev/` subdirectory (`/home/soupcon/soupcon.org/dev/`) as the
+  review-before-promote copy — the same pattern frtcon.com's
+  `public_html/dev` serves, just a differently-named top-level directory.
+  Both copies confirmed live (`200` responses) with correct world-readable
+  permissions throughout (checked recursively — the file-permissions
+  gotcha below does not currently apply here).
+- **`mod_headers` was not enabled** on this Apache instance when soupcon.org
+  first went live (only `mime`/`rewrite` were) — silently dropping the
+  `Link` discovery headers `.htaccess` sets up, exactly the kind of
+  graceful-degradation gap that config's own `<IfModule>` wrapping was
+  designed to allow, just not actually wanted here. Fixed live (`a2enmod
+  headers` + reload) once noticed — this was a **pre-existing gap
+  affecting frtcon.com identically**, not something this deploy
+  introduced, since it's the same shared Apache instance; confirmed both
+  sites now send the `Link` header correctly.
+- **Cloudflare's "Managed robots.txt"** is active on this zone and
+  prepends its own Content-Signal boilerplate + crawler-disallow list
+  ahead of this app's own `robots.txt` on the live response — confirmed via
+  a direct fetch, exactly the scenario the Agent readiness section below
+  already anticipated as a possibility. Practical effect: most robots.txt
+  parsers only honor the *first* `User-agent: *` group, so Cloudflare's own
+  directive (which omits `ai-input` entirely, i.e. "unspecified" rather
+  than granted) likely shadows this app's own explicit `ai-input=yes`.
+  **Not yet resolved** — left as-is; revisit if the explicit
+  `ai-input=yes` policy stance matters enough to disable Cloudflare's
+  managed robots.txt for this zone.
+- No domain-registration/DNS-zone specifics (registrar, nameservers) were
+  independently confirmed here beyond what's implied by the tunnel/DNS
+  routing actually working live — assume the same Namecheap+Cloudflare
+  pattern as frtcon.com unless told otherwise.
 
 ## Frontend architecture & conventions
 
@@ -181,6 +229,31 @@ infrastructure up and this section is rewritten with what's actually true.
   — none of those are "the app's chrome," they're semantic/brand colors
   independent of the SOUPCON hue.
 
+## Agent readiness
+
+Carried over from FRTCON's own agent-readiness work (a Cloudflare scan
+performed there on 2026-09-25) — this fork ships the same files, re-pointed
+at soupcon.org:
+
+- `robots.txt` -- `Content-Signal: search=yes, ai-input=yes, ai-train=no`,
+  explicit `Disallow` for known training crawlers (GPTBot, ClaudeBot, CCBot,
+  Google-Extended, Bytespider, Applebot-Extended, meta-externalagent), and a
+  `Sitemap:` line. The ai-train=no stance is the owner's policy call; flip
+  it there if that changes.
+- `sitemap.xml` -- just `/` (single-page app).
+- `index.md` + `.htaccess` -- `Accept: text/markdown` on `/` rewrites to
+  `index.md` (mod_rewrite), with `Vary: Accept`; `Link` headers advertise
+  the sitemap and the markdown alternate. `.htaccess` works because the
+  vhost has `AllowOverride All`; every block is `<IfModule>`-guarded (see
+  the `mod_headers` gotcha below for what that guard actually caught).
+- **Confirmed active, not just a risk:** Cloudflare's own "Managed
+  robots.txt" is enabled on this zone and prepends its own Content-Signal
+  boilerplate + crawler-disallow list ahead of the file above on the live
+  response (checked via a direct fetch against soupcon.org) — see the
+  Infrastructure section for what that practically means for the
+  `ai-input=yes` stance. Not resolved; a deliberate choice would need to
+  disable Cloudflare's managed robots.txt for this zone specifically.
+
 ## Known gotchas (things that already bit us once)
 
 - **Never set a custom `User-Agent` header on `fetch()` calls to
@@ -206,11 +279,22 @@ infrastructure up and this section is rewritten with what's actually true.
   `cloudflared tunnel route dns` for a hostname in a zone that wasn't
   authorized doesn't error clearly — it silently creates a garbage
   record by concatenating the hostname onto whichever zone it does have
-  access to, rather than the intended one. **Directly relevant to this
-  fork's own infra work (item 12):** if `soupcon.org` is a new zone on
-  the same Cloudflare account used for frtcon.com, re-run `tunnel login`
-  and explicitly authorize the `soupcon.org` zone before routing any
-  hostname in it — don't assume the existing authorization covers it.
+  access to, rather than the intended one. Didn't bite this fork's own
+  soupcon.org rollout (it's live and routing correctly), but still worth
+  checking explicitly if a *new* zone is ever added to this same
+  tunnel/account later — don't assume an existing authorization covers a
+  zone it was never run against.
+- **`mod_headers` is not enabled by default on this origin's Apache** —
+  bit soupcon.org's `Link`-header setup silently (the `.htaccess` rule is
+  `<IfModule>`-wrapped specifically so a missing module degrades instead
+  of erroring, which it did: no error, just no header). Turns out this
+  gap already affected frtcon.com identically, on the same shared Apache
+  instance, unnoticed until this fork's rollout prompted a live check.
+  Fixed with `a2enmod headers` + reload; if this origin is ever rebuilt,
+  confirm `mod_headers` (along with `rewrite`/`mime`, which were already
+  enabled) is on before assuming `.htaccess`'s `Link`/markdown-negotiation
+  rules are actually taking effect — a `curl -I` check against the live
+  site catches this, `.htaccess` alone reading correctly does not.
 - A one-off layout report (iOS: right-side margin missing, on FRTCON)
   turned out to be a **caching artifact**, not a real CSS bug — confirmed
   via incognito testing. Worth ruling out caching first for any "looks

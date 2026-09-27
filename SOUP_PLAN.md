@@ -673,7 +673,7 @@ used by `App.jsx` until item 5). Pure functions, no React/DOM dependency
     regress later.
   - 22/22 tests passing; `npm run lint` and `npm run build` still pass.
 
-### 12. Infra — soupcon.org
+### 12. Infra — soupcon.org — ✅ FIXED (done by the owner directly)
 
 - Confirm domain registration (open question above).
 - Cloudflare: new DNS zone for `soupcon.org`, nameservers pointed at
@@ -692,8 +692,43 @@ used by `App.jsx` until item 5). Pure functions, no React/DOM dependency
 - File permissions: world-readable (644), correct owner — this already bit
   FRTCON's PWA install flow once (see `CONTEXT.md` gotchas); check it
   explicitly during this step rather than after something silently fails.
+- **Done:** set up directly by the owner (not Claude) — same Tunnel
+  (`dd742d1d-...`), new ingress rule routing `soupcon.org`/
+  `www.soupcon.org`/`soupcon.thoughtleap.com` to a new loopback port
+  (`127.0.0.1:8082`), new vhost at `soupcon.conf` serving from
+  `/home/soupcon/soupcon.org/` with a `dev/` subdirectory.
+  - **Deviated from this item's own assumption, correctly:** no certbot
+    cert was set up, and none is needed — the actual ingress rule (checked
+    directly, for both soupcon.org and frtcon.com) speaks plain HTTP to
+    the origin on all three loopback ports, not HTTPS-to-`:443` as this
+    item and `CONTEXT.md`'s pre-rebuild wording assumed. Since nothing is
+    publicly exposed except through the Tunnel, and Cloudflare's edge
+    terminates the real browser-facing TLS regardless, an origin cert
+    would add maintenance for no security benefit here. `CONTEXT.md`
+    rewritten to reflect this (and to correct its own earlier assumption
+    about frtcon.com's setup, which turned out to describe a config that
+    doesn't match the real `config.yml`).
+  - Verified live end-to-end (not just config review): `soupcon.org`,
+    `www.soupcon.org`, and `soupcon.org/dev/` all return real `200`s
+    through Cloudflare; file permissions checked recursively, all
+    correctly world-readable; title/theme-color/content on the live site
+    match the current build.
+  - **Found and fixed along the way:** `mod_headers` wasn't enabled on
+    this origin's Apache, silently dropping the `Link` discovery headers
+    (`.htaccess`'s own `<IfModule>` guard degraded gracefully rather than
+    erroring, exactly as designed, just not as *wanted* here) — this
+    turned out to be a **pre-existing gap affecting frtcon.com
+    identically**, not something this rollout introduced. Fixed with
+    `a2enmod headers` + reload (done by the owner); confirmed both sites
+    now send the header correctly.
+  - **Found, not yet resolved:** Cloudflare's "Managed robots.txt" is
+    active on this zone and prepends its own content ahead of this app's
+    own `robots.txt`, likely shadowing the explicit `ai-input=yes` stance
+    — see `CONTEXT.md`'s Agent readiness/Infrastructure sections. Left
+    as-is pending a decision on whether that matters enough to disable it
+    for this zone.
 
-### 13. Cutover/launch checklist
+### 13. Cutover/launch checklist — ✅ FIXED (done by the owner directly)
 
 - Build, deploy to the `dev` path first, verify there (remembering
   `CONTEXT.md`'s note that PWA/install behavior can't be meaningfully
@@ -701,6 +736,17 @@ used by `App.jsx` until item 5). Pure functions, no React/DOM dependency
 - Promote to `soupcon.org` root, confirm PWA install flow, confirm
   robots.txt/sitemap.xml are being served and match the agent-readiness
   setup FRTCON already did.
+- **Done:** live at both the `dev/` path and the promoted root, confirmed
+  via direct HTTP checks against the real site (see item 12's Done note).
+  robots.txt/sitemap.xml are served, though robots.txt's content is
+  currently modified in-flight by Cloudflare's managed robots.txt feature
+  (see above) — not a deployment bug, a platform-level behavior to
+  separately decide on. **Not yet verified:** the actual PWA install flow
+  (Chrome's `beforeinstallprompt` eligibility, home-screen icon, standalone
+  launch) — everything checked so far has been HTTP-level (`curl`), not a
+  real browser/device install, which is the one thing this app's own
+  `CONTEXT.md` says can only be meaningfully tested from the promoted root,
+  not `/dev/` — worth doing before calling this fully launched.
 
 ---
 
@@ -715,3 +761,30 @@ used by `App.jsx` until item 5). Pure functions, no React/DOM dependency
    storage key renames — cosmetic/polish, safe to batch)
 6. **#10** (docs rewrite, once there's a stable thing to document)
 7. **#12 + #13** (infra + launch — last, and gated on domain registration)
+
+## Status: all 13 items done (2026-09-27)
+
+The rebuild itself (items 1-11) and the infra/launch (items 12-13, done
+directly by the owner rather than Claude) are all complete —
+`soupcon.org` is live. What's left, not because it was skipped but because
+it genuinely couldn't be done from here or wasn't asked for:
+
+- **No live browser verification of the app itself.** Every code-level
+  item (1-11) was verified via `lint`/`test`/`build` and, where possible,
+  direct HTTP checks against the live site — but the actual interactive
+  UI (a real ZIP/geolocation lookup, the rain overlay, the share button,
+  the recipe modal, the PWA install flow specifically) has not been
+  exercised in a real browser this entire rebuild, since Claude in Chrome
+  wasn't connected in any of these sessions. Worth doing before treating
+  this as fully launched, the same rigor `PLAN.md`'s own items were held
+  to.
+- **Cloudflare's managed robots.txt** shadowing the explicit
+  `ai-input=yes` stance — a real, open decision (see `CONTEXT.md`), not a
+  bug to fix.
+- **Rotating soup recipes** — explicitly deferred scope (item 4), not
+  started.
+- The two loose config files this infra review was based on
+  (`cloudflare.config.yml`, `soupcon.conf`, dropped at the repo root,
+  currently untracked) — worth deciding whether these get committed
+  somewhere in the repo as infra documentation/reference, moved elsewhere,
+  or left as scratch copies, rather than sitting untracked indefinitely.
