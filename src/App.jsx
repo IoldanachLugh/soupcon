@@ -731,6 +731,17 @@ export default function App() {
                   </svg>
                   <span className="share-fb-label">Share</span>
                 </button>
+
+                {soupcon.precipType === "snow" ? (
+                  <a
+                    href="https://frtcon.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="snow-crosslink-pill"
+                  >
+                    Snow soon, check your FRTCON!
+                  </a>
+                ) : null}
               </div>
 
               {shareToast ? (

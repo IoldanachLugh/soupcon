@@ -358,13 +358,15 @@ div[role="dialog"] {
   flex-wrap: wrap;
 }
 
-/* Badge, alert-count tag, and Share button share one height/font size and
-   are centered on the same line. .alert-tag's own margins (meant for
-   wrapped tag lists elsewhere) are zeroed here since the row's gap handles
-   spacing -- its margin-bottom otherwise pushes it ~4px off-center. */
+/* Badge, alert-count tag, Share button, and the snow crosslink pill share
+   one height/font size and are centered on the same line. .alert-tag's own
+   margins (meant for wrapped tag lists elsewhere) are zeroed here since the
+   row's gap handles spacing -- its margin-bottom otherwise pushes it ~4px
+   off-center. */
 .soupcon-status-row > .soupcon-badge,
 .soupcon-status-row > .alert-tag,
-.soupcon-status-row > .share-fb-button {
+.soupcon-status-row > .share-fb-button,
+.soupcon-status-row > .snow-crosslink-pill {
   box-sizing: border-box;
   display: inline-flex;
   align-items: center;
@@ -394,6 +396,21 @@ div[role="dialog"] {
 
 .soupcon-status-row > .share-fb-button {
   border-radius: 999px;
+}
+
+/* Cross-promo to FRTCON.com (the winter-storm sibling app) when snow is in
+   the forecast -- reuses the app's existing blue accent (see btn-primary)
+   rather than introducing a new color, styled as a pill to match
+   .alert-tag/.soupcon-badge's shape. */
+.snow-crosslink-pill {
+  background: #60a5fa;
+  color: #1a0f2e;
+  font-weight: bold;
+  text-decoration: none;
+  border-radius: 999px;
+  padding-left: 10px;
+  padding-right: 10px;
+  white-space: nowrap;
 }
 
 .soupcon-updated-at {

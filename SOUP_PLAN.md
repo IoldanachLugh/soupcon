@@ -819,6 +819,32 @@ precipitation events the same?"
     drift/density right) has been reviewed as code only, not seen
     rendered.
 
+### 15. FRTCON.com cross-promo pill on snow — ✅ FIXED
+
+- **Ask (per user):** "When snow is predicted, we should send them to
+  FRTCON.com. Lets add a pill next to the facebook share. 'Snow soon,
+  check your FRTCON!'"
+- **Done:** a new `<a>` pill in `App.jsx`'s `.soupcon-status-row` (next to
+  the Facebook Share button, as asked), shown only when
+  `soupcon.precipType === "snow"` (i.e. any of the three snow-triggering
+  levels — currently snowing, snow in 12h, or snow in 48h — not just
+  "currently snowing"). Links to `https://frtcon.com` with
+  `target="_blank" rel="noopener noreferrer"`, matching the safety pattern
+  already used for the Facebook share's own `window.open` call. Styled as
+  a pill (`.snow-crosslink-pill` in `styles.css`) reusing the app's
+  existing blue accent color (`#60a5fa`/`#1a0f2e`, the same pairing
+  `.btn-primary` already uses) rather than introducing a new color, and
+  added to the same shared height/font-size selector group the badge/
+  alert-tag/share-button already share so it sits level with them on the
+  row. The row's existing `flex-wrap: wrap` handles this longer pill
+  gracefully on narrow widths (wraps to its own line rather than
+  overflowing or squeezing its siblings).
+  - `README.md`'s feature list updated with a one-line mention.
+  - `npm run lint`, `npm run test` (30/30, unchanged -- this is
+    presentation-only, no classification logic changed), and `npm run
+    build` all pass.
+  - **Not verified live in a browser:** same recurring caveat.
+
 ---
 
 ## Suggested order

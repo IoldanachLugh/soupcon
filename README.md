@@ -28,6 +28,10 @@ Live at [soupcon.org](https://soupcon.org).
   share dialog in a new tab, so the user pastes the text into their post.
   Facebook's `sharer.php` only accepts a URL (no custom text), which is why
   the text goes via clipboard; the link card comes from the `u` param.
+- Shows a "Snow soon, check your FRTCON!" pill next to the Share button
+  whenever snow (not rain) is the driving forecast — a cross-promo link to
+  [frtcon.com](https://frtcon.com), the winter-storm-severity sibling app
+  this fork started from.
 - Installable as a home-screen app on Android (via the in-app "Install App"
   menu item) and iOS (via a guided "Add to Home Screen" flow, since iOS has
   no programmatic install API).
