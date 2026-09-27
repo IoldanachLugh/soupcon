@@ -1,4 +1,4 @@
-# FRTCON — Development Context
+# SOUPCON — Development Context
 
 This document exists to re-establish context for a new development session
 (with Claude or otherwise) without needing to replay prior conversation
@@ -8,50 +8,46 @@ For what the app *does* and how the code is organized, see `README.md`.
 
 ## What this project is
 
-FRTCON ("French Toast Conditions") is a personal side project: a static
-React/Vite app with no backend, that checks live NWS weather alerts for a
-location and classifies them into a 5-level "should I make French toast and
-stay home" severity scale. Live at frtcon.com. The owner is primarily a
-backend developer using this project to build frontend and AI-assisted
-development experience — development has been done largely via Claude,
-with the owner directing architecture, reviewing/testing, and owning
-infrastructure decisions.
+SOUPCON ("Soup Conditions") is a fork of [frtcon.com](https://frtcon.com)
+("French Toast Conditions"), rebranded and rebuilt around a different
+concept: instead of classifying winter-storm alert severity, it classifies
+the rain outlook (currently raining / rain soon / rain later / cloudy /
+clear) into a 5-level "should I make soup and stay home" scale. It kept
+FRTCON's plumbing (React/Vite, no backend, NWS-API-driven, PWA install
+flow, the general code layout) but replaced the classification logic, data
+sources, content, and branding. `frtcon.com` itself is untouched and
+continues to exist separately — this is a new, independent site at
+soupcon.org, not a migration of the old one. The rebuild was done item by
+item against `SOUP_PLAN.md` (a running plan in the same spirit as
+`PLAN.md`, but for this build-out rather than a code review) — read that
+file's "Decisions locked in" section and its per-item "Done:" notes before
+re-touching anything the rebuild already covered, for the same reason
+`PLAN.md`'s own "Done:" notes matter.
 
-## Infrastructure summary
+The owner is primarily a backend developer using this project (both as
+FRTCON and now as this fork) to build frontend and AI-assisted development
+experience — development has been done largely via Claude, with the owner
+directing architecture, reviewing/testing, and owning infrastructure and
+branding decisions (the SOUPCON name/scale definition, the icon artwork,
+and the color palette were all the owner's own calls, not Claude's).
 
-- **Domain**: `frtcon.com`, registered at **Namecheap** (migrated from
-  Squarespace registration).
-- **DNS**: The `frtcon.com` zone is hosted on **Cloudflare** (free plan).
-  Nameservers point to Cloudflare.
-- **Traffic routing**: A **Cloudflare Tunnel** named `home-server`
-  (tunnel ID begins `dd742d1d-...`) connects the origin server to
-  Cloudflare's edge — no public IP is exposed, no port forwarding, no
-  dynamic-DNS/ddclient setup was ultimately needed (a tunnel makes that
-  moot, since it's an outbound-only connection regardless of the origin's
-  IP). Ingress rules (in `config.yml` on the origin server, **not**
-  dashboard-managed) route `frtcon.com` and `www.frtcon.com` to Apache on
-  `localhost:443`.
-- **Origin server**: hostname `elephant`, primary user `frtcon`.
-  `cloudflared` runs as its own dedicated system user (`cloudflared`), not
-  as `frtcon` — CLI management commands (`cloudflared tunnel list`,
-  `route dns`, etc.) must be run as `sudo -u cloudflared cloudflared ...`
-  to see the right tunnel/auth context.
-- **Web server**: Apache2. Site config lives at
-  `/etc/apache2/sites-available/frtcon.conf`, serving from
-  `/home/frtcon/public_html`. A **dev instance** exists at
-  `public_html/dev` — this is the first place changes get reviewed before
-  going to production, not a separate server or deployment target.
-- **TLS**: **certbot**, installed via **snap** (not apt — do not have both
-  installed simultaneously, they conflict and produce confusing
-  "unrecognized arguments" errors). Uses the `certbot-dns-cloudflare`
-  plugin (also a separate snap, connected via
-  `snap connect certbot:plugin certbot-dns-cloudflare`) for DNS-01
-  validation. The certificate covers `frtcon.com` and `www.frtcon.com` as
-  SANs. Credentials live in `/etc/letsencrypt/cloudflare.ini`
-  (permissions `600`, root-only) — contains a Cloudflare API token scoped
-  to `Zone.DNS:Edit` on the `frtcon.com` zone. To add a new hostname to
-  the cert later: re-run certbot with the full desired name list,
-  `--expand`.
+## Infrastructure
+
+**Not yet set up.** `soupcon.org` has no deployment yet — this section will
+get filled in with real facts (domain registration status, DNS zone,
+Apache vhost path, certbot/cert details, Cloudflare Tunnel ingress rule)
+once that work actually happens (`SOUP_PLAN.md` items 12-13), not before.
+
+Planned shape, per `SOUP_PLAN.md`: the same general pattern frtcon.com
+uses (Cloudflare Tunnel + Apache origin + certbot via
+`certbot-dns-cloudflare`), likely the *same* Cloudflare account and
+possibly the same Tunnel (an existing tunnel can route multiple hostnames —
+see the cloudflared gotcha below), but as its **own** vhost, its **own**
+TLS certificate (not an `--expand` of frtcon.com's cert, since these are
+unrelated sites), and its own DNS zone/registration. Do not assume any of
+frtcon.com's specific infrastructure facts (its tunnel ID, its vhost path,
+its cert SANs) apply here until item 12 actually sets this fork's own
+infrastructure up and this section is rewritten with what's actually true.
 
 ## Frontend architecture & conventions
 
@@ -60,16 +56,66 @@ infrastructure decisions.
   `App.jsx` (orchestration only), `lib/` (pure logic + network calls),
   `data/` (static content), `components/`.
 - **Styling**: plain CSS in `src/styles.css`, semantic kebab-case class
-  names (e.g. `.frtcon-condition-status` for the condition box,
-  `.frtcon-badge--level-N` modifier classes for severity colors). No
+  names (e.g. `.soupcon-condition-status` for the condition box,
+  `.soupcon-badge--level-N` modifier classes for severity colors). No
   CSS-in-JS, no inline `style={}` except for genuinely per-instance
-  dynamic values (e.g. each snowflake's randomized position/timing in
-  `SnowOverlay.jsx`).
-- `lib/frtcon.js` (`classifyAlert`, `determineFrtcon`) is pure — no
-  React/DOM dependency — specifically so it's straightforward to unit
-  test later, even though no test suite exists yet.
+  dynamic values (e.g. each raindrop's randomized position/timing in
+  `RainOverlay.jsx`).
+- `lib/soupcon.js` (`classifySoupcon`) is pure — no React/DOM dependency —
+  and does have a test suite (`soupcon.test.js`, `vitest`), unlike FRTCON's
+  equivalent module, which never got one.
+- **Classification data source (the single biggest architectural
+  difference from FRTCON):** FRTCON classified a list of NWS *alerts* by
+  matching each one's fixed, published `event` string. SOUPCON classifies
+  *forecast text* instead — there's no NWS alert type for "it's raining
+  right now" in the general case, so alerts aren't usable as the primary
+  signal here. `classifySoupcon` takes three inputs:
+  - `hourlyPeriods` (NWS gridpoint `forecast/hourly`) — drives the
+    12h/48h rain windows (levels 2/3).
+  - `observation` (nearest station's `/observations/latest`) — drives
+    "currently raining" (level 1). See the station-staleness note below.
+  - `extendedPeriods` (NWS gridpoint `forecast`, 12-hour periods) — drives
+    the cloudy-vs-clear split (levels 4/5) once rain is ruled out for 48h.
+
+  Because `shortForecast`/`textDescription` are genuinely closer to free
+  text than an alert's `event` field, the rain/cloudy/clear keyword lists
+  in `soupcon.js` were checked against live `api.weather.gov` output
+  (several rain-prone cities, 48h of hourly + several extended periods)
+  before being trusted, not just assumed — see `SOUP_PLAN.md` item 2's
+  "Done" note for exactly what was checked. Still not a guaranteed-complete
+  set, the same caveat FRTCON's own `event`-matching carried.
+- **Nearest-station staleness:** a station listed as "the" observation
+  station for a point isn't guaranteed to have reported recently.
+  `getCurrentConditions` (`weatherApi.js`) tries up to 5 of the nearest
+  stations in order and uses the first one with a reading within 90
+  minutes; if none qualify, it returns `null` rather than throwing, and
+  `classifySoupcon` falls back to the current hourly forecast period for
+  the "currently raining" check in that case.
+- **Shared gridpoint lookup + in-flight de-dup:** `getLocationLabel`,
+  `getHourlyForecast`, `getExtendedForecast`, and `getCurrentConditions`
+  all need the same NWS `/points/{lat},{lon}` response (grid office/x/y,
+  the two forecast URLs, the observation-stations URL, and the location
+  label). `App.jsx` calls all four concurrently for a single lookup, so
+  a private `getGridpointInfo` in `weatherApi.js` both caches that
+  response (TTL-based, like everything else in `cache.js`) and
+  deduplicates concurrent in-flight requests for the same location via an
+  in-memory `Map` of pending promises — otherwise a cold-cache lookup
+  would fire 4 near-simultaneous requests for the exact same URL. This
+  relies on this app's own call pattern always passing the same
+  `AbortSignal` to concurrent calls for one location; it isn't a
+  general-purpose per-caller-cancellation mechanism.
+- **Location label:** uses NWS's `relativeLocation` (city/state, e.g.
+  "Seattle, WA") from the `/points` response, not a forecast-zone name —
+  reads better for a rain app than FRTCON's old zone-name label did.
+  `getZoneByPoint` (the old zone lookup) was deleted once this replaced
+  its only use.
+- **Raw alerts panel kept, decoupled from the score.** SOUPCON still shows
+  every active NWS alert for the location (flood-family alerts are
+  on-theme for a rain app), but purely as an independent info panel —
+  `classifySoupcon` doesn't look at alerts at all, so there's no
+  "alerts driving the score" concept anymore.
 - PWA support exists: `manifest.json`, a no-cache/network-first `sw.js`
-  (deliberate — this app shows live alert data, so caching would be
+  (deliberate — this app shows live rain-forecast data, so caching would be
   actively misleading, not just stale), and install-flow UI in the
   hamburger menu (Android gets a real install button via
   `beforeinstallprompt`; iOS gets manual "Add to Home Screen"
@@ -89,66 +135,51 @@ infrastructure decisions.
   with capped backoff, then gives up with a manual Retry button rather
   than spinning forever on a real outage/airplane-mode; see `public/sw.js`
   for the retry/give-up logic.
-- Active alerts are fetched by point (`/alerts/active?point={lat},{lon}`),
-  not by forecast zone (`/alerts/active/zone/{zoneId}`) — the zone
-  endpoint silently omits alerts issued by county or storm polygon (UGC
-  `xxCnnn`) rather than by forecast zone (UGC `xxZnnn`), which includes
-  some winter alert types the FRTCON scale relies on (e.g. Snow Squall
-  Warning). Confirmed against live NWS data during a 2026-09-14 review:
-  several currently-active county/polygon-coded alerts were present via
-  `?point=` and absent from the zone endpoint for the same coordinates.
-  `getZoneByPoint` (`/points/` → `/zones/forecast/{zoneId}`) is still
-  used, just only for the human-readable zone name shown in the UI, not
-  for filtering which alerts are shown.
 - The app auto-resumes a returning visitor's last-used lookup method
   (browser geolocation vs. ZIP) on load, tracked via a
-  `frtcon_last_source` localStorage key — but that key (and
-  `frtcon_last_zip`) is only written once a lookup actually succeeds, and
+  `soupcon_last_source` localStorage key — but that key (and
+  `soupcon_last_zip`) is only written once a lookup actually succeeds, and
   the silent auto-resume is skipped entirely if
-  `navigator.permissions` reports geolocation as `denied`. (Earlier this
-  persisted before the lookup even ran, so a denied permission or a
-  nonexistent ZIP got "remembered" as the preferred method and silently
-  re-failed on every later visit — a manual click of "Use Browser
-  Location" is unaffected either way.)
+  `navigator.permissions` reports geolocation as `denied`. (This behavior,
+  and the reasoning behind it, carried over unchanged from FRTCON.)
 
 - **Facebook Share button** (`handleShare` in `App.jsx`). Facebook's
   `sharer.php` accepts only a URL, so the button copies the text to the
-  clipboard and opens `sharer.php?u=https://frtcon.com` in a new tab; the
-  user pastes. Decisions: (1) the copied text is exactly what the
-  `.frtcon-condition-status` box shows (headline, title, the same random
-  commentary lines) -- so the random line selection lives in `App.jsx`
-  (`frtconMessage`), not inside `FrtconMessage`, so share and display can't
-  diverge; footnote omitted. (2) No URL in the copied text -- the link card
-  already carries it. (3) Clipboard write runs *before* `window.open()`:
-  opening the tab first shifted focus and made Chrome show a "wants to see
-  text and images copied to the clipboard" permission prompt. (4) Toast
-  after, not a confirm dialog before -- user's choice, to avoid an extra
-  click. (5) Plain text only: no way to bold the headline on Facebook
+  clipboard and opens `sharer.php?u=https://soupcon.org` in a new tab; the
+  user pastes. Decisions (carried over from FRTCON, still accurate here):
+  (1) the copied text is exactly what the `.soupcon-condition-status` box
+  shows (headline, title, the same random commentary lines) -- so the
+  random line selection lives in `App.jsx` (`soupconMessage`), not inside
+  `SoupconMessage`, so share and display can't diverge; footnote omitted.
+  (2) No URL in the copied text -- the link card already carries it.
+  (3) Clipboard write runs *before* `window.open()`: opening the tab first
+  shifted focus and made Chrome show a "wants to see text and images
+  copied to the clipboard" permission prompt. (4) Toast after, not a
+  confirm dialog before -- user's choice, to avoid an extra click.
+  (5) Plain text only: no way to bold the headline on Facebook
   (Unicode-bold trick was offered and declined). The "f" icon is a
   hand-built SVG, not Meta's official brand asset.
 
-## Agent readiness (added 2026-09-25, after a Cloudflare agent-readiness scan)
-
-The scan flagged: no robots.txt, sitemap, Link headers, AI-discovery DNS,
-markdown negotiation, AI crawler rules, or content signals. Addressed in
-`public/` (ships with `dist/`):
-
-- `robots.txt` -- `Content-Signal: search=yes, ai-input=yes, ai-train=no`,
-  explicit `Disallow` for known training crawlers (GPTBot, ClaudeBot, CCBot,
-  Google-Extended, Bytespider, Applebot-Extended, meta-externalagent), and a
-  `Sitemap:` line. The ai-train=no stance is the owner's policy call; flip
-  it there if that changes.
-- `sitemap.xml` -- just `/` (single-page app).
-- `index.md` + `.htaccess` -- `Accept: text/markdown` on `/` rewrites to
-  `index.md` (mod_rewrite), with `Vary: Accept`; `Link` headers advertise
-  the sitemap and the markdown alternate. `.htaccess` works because the
-  vhost has `AllowOverride All`; every block is `<IfModule>`-guarded. Tested
-  against a scratch Apache with curl. There's deliberately no `api-catalog`
-  Link: the app has no API of its own.
-- **Not done (outside the repo):** AI-discovery DNS records live in the
-  Cloudflare zone, and Cloudflare's own "Markdown for Agents"/managed
-  robots.txt/AI-crawler toggles are dashboard settings. If Cloudflare's
-  managed robots.txt is ever enabled it may prepend/override the file above.
+- **Icon artwork and color palette** (added during the SOUPCON rebuild).
+  Icon: a two-tone bowl (a circle with its top half erased, leaving an
+  upward-facing semicircle "bowl body," plus an ellipse "rim" sitting on
+  the flat cut line) under three raindrop shapes, on a solid background —
+  design specified directly by the owner, iterated once for boldness (the
+  first pass was judged "not bold enough"; the current version is a
+  user-edited master SVG with a larger bowl/rim and bigger raindrops).
+  Generated as PNG/ICO from that master via `rsvg-convert`/ImageMagick,
+  with a separately-scaled variant for the maskable icon (Android's
+  circular-crop safe zone) since the bold master's own extremes sit just
+  outside a strict circular mask's safe radius. Palette: kept FRTCON's
+  blue accent family (buttons, status-box border/text, alert chips)
+  unchanged since it ties directly to the icon's raindrops -- "purple
+  shell + blue rain accents" mirrors the icon. Converted only the navy
+  "chrome" colors (page/card/modal backgrounds, borders, dropdown/input
+  backgrounds) to a purple equivalent at matching lightness. Left
+  unchanged: the Facebook-brand blue share button, the red error box, the
+  amber condition-status callout box, and the five severity-badge colors
+  — none of those are "the app's chrome," they're semantic/brand colors
+  independent of the SOUPCON hue.
 
 ## Known gotchas (things that already bit us once)
 
@@ -156,14 +187,16 @@ markdown negotiation, AI crawler rules, or content signals. Addressed in
   api.weather.gov.** Chrome/Firefox silently ignore it, but Safari
   (all iOS browsers, since iOS mandates WebKit) sends it as a real
   header, which fails NWS's CORS preflight and breaks every request
-  specifically on iPhone. This was already added once, caused exactly
-  this bug, and was removed — don't re-add it without a server-side
-  proxy to hold it instead.
+  specifically on iPhone. This was already added once (in FRTCON), caused
+  exactly this bug, and was removed — don't re-add it without a
+  server-side proxy to hold it instead.
 - **Static file permissions must be world-readable (644, correct
   owner:group matching the rest of the deployed site) or Apache silently
-  fails to serve them.** This specifically broke the PWA manifest/service
-  worker/icons once (root-owned 600 files) with no visible error — Chrome
-  just never fired `beforeinstallprompt`, with nothing to indicate why.
+  fails to serve them.** This specifically broke FRTCON's PWA
+  manifest/service worker/icons once (root-owned 600 files) with no
+  visible error — Chrome just never fired `beforeinstallprompt`, with
+  nothing to indicate why. Same risk applies here once this fork is
+  actually deployed.
 - **Don't install certbot via both snap and apt simultaneously** — the
   DNS plugin snap only registers with the snap `certbot` binary; a
   coexisting apt install causes "unrecognized arguments" errors that look
@@ -173,13 +206,16 @@ markdown negotiation, AI crawler rules, or content signals. Addressed in
   `cloudflared tunnel route dns` for a hostname in a zone that wasn't
   authorized doesn't error clearly — it silently creates a garbage
   record by concatenating the hostname onto whichever zone it does have
-  access to, rather than the intended one. If another domain/zone is ever
-  added to this account or tunnel, re-run `tunnel login` and explicitly
-  authorize the additional zone before routing hostnames in it.
-- A one-off layout report (iOS: right-side margin missing) turned out to
-  be a **caching artifact**, not a real CSS bug — confirmed via incognito
-  testing. Worth ruling out caching first for any "looks different on a
-  specific device" report before assuming it's a real rendering issue.
+  access to, rather than the intended one. **Directly relevant to this
+  fork's own infra work (item 12):** if `soupcon.org` is a new zone on
+  the same Cloudflare account used for frtcon.com, re-run `tunnel login`
+  and explicitly authorize the `soupcon.org` zone before routing any
+  hostname in it — don't assume the existing authorization covers it.
+- A one-off layout report (iOS: right-side margin missing, on FRTCON)
+  turned out to be a **caching artifact**, not a real CSS bug — confirmed
+  via incognito testing. Worth ruling out caching first for any "looks
+  different on a specific device" report before assuming it's a real
+  rendering issue.
 - **Vite 8 (and therefore `npm run dev`/`build`/`test`) requires Node
   `^20.19.0 || >=22.12.0`.** An older Node fails two different ways: `vite
   build`/`vitest` themselves throw (`node:util` doesn't export `styleText`
@@ -190,9 +226,7 @@ markdown negotiation, AI crawler rules, or content signals. Addressed in
   leaving `node_modules` broken even for a later newer-Node run until it's
   reinstalled. This dev environment now has **nvm**, with a default alias
   pinned to a Node satisfying the above (confirm with `nvm current` if
-  something in this list resurfaces) — this used to be a real gotcha
-  before nvm was set up here (2026-09-27), when the only system Node was
-  18.19.1 and neither problem above was obvious from the error text alone.
+  something in this list resurfaces).
 - **Service workers update lazily, not on next deploy.** Shipping a new
   `sw.js` doesn't mean a device picks it up the next time the app opens —
   the *old* SW instance is still active and controlling the page. The
@@ -206,15 +240,15 @@ markdown negotiation, AI crawler rules, or content signals. Addressed in
 
 ## Deliberately decided against (don't re-litigate without new info)
 
-- **Cloudflare Bot Fight Mode**: left off. No login/payment/auth surface
-  on FRTCON itself for it to meaningfully protect, and the Free-tier
-  version has no exception/allowlist mechanism, with a known false-positive
-  track record.
+- **Cloudflare Bot Fight Mode**: left off (carried over from FRTCON). No
+  login/payment/auth surface on SOUPCON itself for it to meaningfully
+  protect, and the Free-tier version has no exception/allowlist mechanism,
+  with a known false-positive track record.
 - **Native app / App Store distribution**: considered and rejected as
   disproportionate. The PWA install flow (manifest + service worker) gets
   most of the practical benefit without App Store review/cost/maintenance.
 - **Dynamic per-state home-screen icon** (different icon graphic per
-  FRTCON level, auto-refreshing): confirmed **not possible** on the web
+  SOUPCON level, auto-refreshing): confirmed **not possible** on the web
   platform at all, on either OS, at any level of engineering effort — no
   API lets a web app swap its own installed icon post-install. The
   Badging API (`navigator.setAppBadge`) is the closest real capability
@@ -222,8 +256,12 @@ markdown negotiation, AI crawler rules, or content signals. Addressed in
 
 ## Shelved for later (not started, but scoped)
 
+- **Rotating soup recipes.** The recipe modal currently shows one fixed
+  recipe (chicken noodle). Multiple recipes with some rotation mechanism
+  is a real planned feature, explicitly deferred during the rebuild rather
+  than built speculatively — see `SOUP_PLAN.md` item 4.
 - **Web Share API on mobile** (native share sheet carrying condition text +
-  link). The Facebook Share button itself is built (see below); this
+  link). The Facebook Share button itself is built (see above); this
   mobile variant is not.
 - **Server-rendered share previews.** Agreed shape: accept ZIP or
   coordinates as URL parameters, server-render the initial page using
@@ -232,22 +270,23 @@ markdown negotiation, AI crawler rules, or content signals. Addressed in
   a specific real location, and doubles as a genuinely useful "check this
   location" link for whoever receives it. Requires moving off a purely
   static/client-rendered model — this is the prerequisite for both this
-  and the next item.
+  and the next item. (Carried over from FRTCON, unchanged.)
 - **Push notifications** for badge/condition updates while the app isn't
   open (not just on open). Requires a small backend that polls NWS on a
   schedule and pushes updates to subscribed clients.
-- **Affiliate integration** (Walmart and/or Amazon) for winter-gear /
-  French-toast-adjacent products. Walmart's affiliate program was applied
-  for; requires no business entity (individual + SSN/W-9 is sufficient).
-  Walmart's "Recipes and Bundle API" is a good fit given it can map an
-  ingredient list (the recipe already on-site) to purchasable products.
-  Any product-API-based approach (Walmart or Amazon PA-API) requires a
-  server-side credential proxy — the API keys involved cannot be exposed
-  client-side the way an AdSense publisher ID or Google Analytics ID can.
-  Google AdSense itself was also discussed as a simpler, contextual-only
-  (not manually curated) alternative if a full product-API integration
-  ends up being more than it's worth.
+- **Affiliate integration** (Walmart and/or Amazon) for soup ingredients or
+  rainy-day gear. Walmart's affiliate program was applied for (under the
+  FRTCON project); requires no business entity (individual + SSN/W-9 is
+  sufficient). Walmart's "Recipes and Bundle API" is a good fit given it
+  can map an ingredient list (the recipe already on-site) to purchasable
+  products. Any product-API-based approach (Walmart or Amazon PA-API)
+  requires a server-side credential proxy — the API keys involved cannot
+  be exposed client-side the way an AdSense publisher ID or Google
+  Analytics ID can. Google AdSense itself was also discussed as a
+  simpler, contextual-only (not manually curated) alternative if a full
+  product-API integration ends up being more than it's worth.
 
-All three shelved items converge on the same prerequisite: introducing a
-real backend/server-rendering layer. Worth treating as one combined
-migration rather than three separate ones when the time comes.
+All shelved items above except the rotating-recipes one converge on the
+same prerequisite: introducing a real backend/server-rendering layer.
+Worth treating as one combined migration rather than several separate ones
+when the time comes.

@@ -1,5 +1,16 @@
 # PLAN.md — Full code review follow-ups
 
+> **Superseded (2026-09-27):** this document is a historical record of the
+> FRTCON codebase's code review, from before this repo was rebuilt as
+> SOUPCON. Most of the specific files/logic it references (`frtcon.js`,
+> `alertMessages.js`, `FrtconBadge`/`FrtconMessage`, the zone-based alerts
+> lookup, `SnowOverlay`, etc.) no longer exist — see `SOUP_PLAN.md` for the
+> rebuild that replaced them and why. Kept as-is (not deleted, not rewritten
+> in place) since its "Done:" notes are still an accurate record of real
+> decisions made about the original FRTCON app; just don't use it as a
+> guide to the current codebase's structure. `SOUP_PLAN.md` is the current
+> running plan for this fork.
+
 Review of the whole package at `7ff8fdb` (2026-09-14). `npm run lint` is
 clean and `vite build` succeeds (built `index.html` correctly rewrites icon
 and manifest paths to relative with `base: './'`).
@@ -558,7 +569,7 @@ Items are ordered by priority. File references are `path:line` at `7ff8fdb`.
     of non-obvious "decision made and why" CONTEXT.md exists to capture
     and nothing there mentioned it before.
 
-### 11. No tests for the classification logic
+### 11. No tests for the classification logic — superseded, not fixed here
 
 - **Problem:** `src/lib/frtcon.js` was written to be testable, but there is
   no test suite. Tests would have guarded a change like `a2e3cd1`.
@@ -571,6 +582,13 @@ Items are ordered by priority. File references are `path:line` at `7ff8fdb`.
   - `determineFrtcon`: empty list, non-winter-only list, lowest level wins,
     `matchingAlerts` sorted
   - `pickRandomItems` returns `min(count, length)` unique items
+- **Superseded (2026-09-27):** `frtcon.js`/`determineFrtcon` no longer
+  exist — replaced by `src/lib/soupcon.js`/`classifySoupcon` as part of the
+  SOUPCON rebuild. This item's underlying ask (a test suite for the
+  classification logic) *was* acted on, just for the new module instead of
+  this one: see `SOUP_PLAN.md` items 1 and 11 for `soupcon.test.js`. This
+  entry is left unmarked (not ✅ FIXED) because the specific fix described
+  above was never applied to `frtcon.js` itself — it's moot now, not done.
 
 ### 12. Minor — ✅ FIXED
 

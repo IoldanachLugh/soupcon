@@ -580,7 +580,7 @@ used by `App.jsx` until item 5). Pure functions, no React/DOM dependency
     auto-resume behavior are reviewed as code only -- same recurring gap
     as items 3-7.
 
-### 10. Docs rewrite — `README.md` and `CONTEXT.md`
+### 10. Docs rewrite — `README.md` and `CONTEXT.md` — ✅ FIXED
 
 - Full rewrite once the app itself reflects the new concept (do this after
   items 1–9, not before, so it documents what's actually true): what it
@@ -592,6 +592,60 @@ used by `App.jsx` until item 5). Pure functions, no React/DOM dependency
   once `frtcon.js` is replaced — note in `PLAN.md` that it's superseded by
   this plan rather than leaving it looking abandoned. Decide then whether
   `PLAN.md` itself gets archived/retired for this fork.
+- **Done:**
+  - **`README.md`** fully rewritten: SOUPCON scale table, the
+    forecast/observation classification rationale (with its own caveat
+    about keyword-matching free-text `shortForecast`, mirroring how the
+    old README caveated `event`-matching), updated project structure
+    (`soupcon.js`/`soupcon.test.js`, `soupMessages.js`, `RainOverlay`/
+    `SoupconBadge`/`SoupconMessage`), `npm run test` added to "Getting
+    started," the new `#1a0f2e` theme-color in the PWA `<head>` snippet,
+    "APIs used" reworded to explain alerts are now independent of the
+    score, a new limitations bullet about keyword-matching coverage, and
+    "Ideas for later" updated (rotating soup recipes added; the affiliate
+    idea reworded from winter-gear/French-toast groceries to
+    soup-ingredients/rainy-day gear).
+  - **`CONTEXT.md`** fully rewritten: new "What this project is" explains
+    the fork relationship to frtcon.com explicitly (untouched, separate
+    site) and points to `SOUP_PLAN.md`'s own "Decisions locked in"/Done
+    notes the same way this file's own Done notes matter. Infrastructure
+    section deliberately **not** filled in with invented soupcon.org
+    specifics — replaced with a "not yet set up, here's the planned shape"
+    note per the plan's own instruction, explicitly warning not to assume
+    frtcon.com's specific facts (tunnel ID, vhost path, cert SANs) apply
+    here. Frontend architecture section rewritten around the real new
+    decisions: the forecast/observation-vs-alerts classification choice,
+    station-staleness handling, the gridpoint in-flight de-dup, the
+    location-label change, the decoupled alerts panel, and the icon/
+    palette decisions (new subsection, since those were real
+    owner-directed decisions worth recording the same way the old Share
+    button decisions were). Gotchas/decided-against/shelved sections
+    carried over with FRTCON-specific wording fixed (e.g. the cloudflared
+    zone-scoping gotcha now explicitly flags it as relevant to this
+    fork's own upcoming item-12 work) and one new shelved item added
+    (rotating soup recipes, cross-referenced to item 4's decision).
+  - **`PLAN.md`**: added a banner note at the top marking the whole
+    document superseded/historical (kept, not deleted or rewritten in
+    place, since its own Done notes are still an accurate record of real
+    FRTCON-era decisions) and specifically annotated item #11 (classification
+    tests) as superseded by `soupcon.test.js` rather than left looking
+    like an abandoned open item.
+  - **`CLAUDE.md` updated too** (not explicitly named in this item, but a
+    real gap found while doing this work): its session-bootstrap list
+    only mentioned `PLAN.md`, with no pointer to `SOUP_PLAN.md` at all --
+    a new session could easily have missed this plan entirely. Reworded
+    the `PLAN.md` bullet to reflect its now-historical status and added a
+    fourth bullet for `SOUP_PLAN.md`, plus updated "Keeping these in sync"
+    to reference `SOUP_PLAN.md` as the doc that gets new Done notes going
+    forward.
+  - Verified every file path named in the new README/CONTEXT actually
+    exists (`soupcon.js`, `soupcon.test.js`, `soupMessages.js`,
+    `RainOverlay.jsx`, `SoupconBadge.jsx`, `SoupconMessage.jsx`, etc.) and
+    that no unintentional `frtcon.com`/FRTCON references remain (the ones
+    that do remain in `CONTEXT.md` are deliberate: describing the sibling
+    site's lineage and shared infra history). `npm run lint`, `npm run
+    test` (22/22), and `npm run build` all still pass (docs-only change,
+    but verified anyway per this project's own norms).
 
 ### 11. Tests — `vitest` — ✅ FIXED
 
