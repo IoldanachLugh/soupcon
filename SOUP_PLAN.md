@@ -457,20 +457,33 @@ used by `App.jsx` until item 5). Pure functions, no React/DOM dependency
   - **Icons (asked, per decision above):** user specified the design
     directly — "a simple two tone bowl (oval on top of an upwards facing
     semicircle) in dark and light purple under some blue raindrops, all on
-    a lavender background." Built as hand-authored SVG (a full circle with
-    its top half erased by a same-color rect, leaving a semicircle "bowl
-    body"; an ellipse "rim" sitting on the flat cut line; three bezier
-    teardrop raindrops above), rasterized via `rsvg-convert`/ImageMagick
-    (both available in this environment) into `icon-192.png`,
-    `icon-512.png`, `icon-512-maskable.png` (full-bleed variant, design
-    scaled to 72% and centered for safe-zone margin, same reasoning the
-    old maskable icon used), `apple-touch-icon.png` (180x180, same
-    full-bleed variant), `favicon.svg` (the rounded-square "any" variant,
-    scales fine), and `favicon.ico` (multi-res 16/32/48 via `convert`).
-    Colors: lavender bg `#E3D6F7`, dark purple bowl `#4A2E7A`, light purple
-    rim `#B79CE0`, blue raindrops `#5B8DEF`. Visually checked at 512/192/64
-    px before finalizing -- legible even at favicon size. Old snowflake
-    assets fully replaced, not kept alongside.
+    a lavender background." First pass: hand-authored SVG (a full circle
+    with its top half erased by a same-color rect, leaving a semicircle
+    "bowl body"; an ellipse "rim"; three bezier teardrop raindrops above),
+    rasterized via `rsvg-convert`/ImageMagick into all required sizes.
+    User feedback on that pass: "weren't bold enough." **Regenerated from
+    a user-provided master** (`/tmp/favicon.svg`, edited in Inkscape from
+    the first pass) with a larger bowl/rim (1.667x) and larger raindrops
+    (2.5x), more saturated colors (`#a28ead` bg, `#9042ad` bowl,
+    `#602c74` rim, `#5b8def` drops unchanged), and content shifted upward
+    for better balance. From that single master:
+    - `favicon.svg`/`icon-192.png`/`icon-512.png` — the master as-is
+      (already rounded-square clipped).
+    - `apple-touch-icon.png` — same design with the rounded-square
+      `clip-path` stripped (full-bleed square, no transparency, matching
+      Apple's own convention of applying its own corner rounding).
+    - `icon-512-maskable.png` — full-bleed square with the bowl/drops
+      group scaled 0.85 and centered. Checked the math (not just eyeballed
+      this time): the bold master's furthest extremes (bowl bottom tip,
+      top raindrop tip) sit right at ~210px from center against a ~205px
+      safe radius for an 80%-safe-zone circular mask -- i.e. the fully
+      bold version was *just* outside safe for a strict circular crop, so
+      the maskable variant specifically gets a modest 0.85 scale-down
+      (much less conservative than the first pass's 0.72) rather than
+      reusing the bold version unscaled or over-shrinking it again.
+    - `favicon.ico` — multi-res 16/32/48 from the same master.
+    Checked all sizes visually (512/192/64px) before finalizing --
+    reads as bold and legible even at favicon size.
   - **Color palette (asked, "switch to a new rain-coded palette"):**
     proposed and applied keeping the *blue* accent family (buttons,
     status-box border/text, alert chips) unchanged -- it ties directly to

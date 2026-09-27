@@ -1,20 +1,114 @@
-<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <clipPath id="roundedSquare">
-      <rect x="0" y="0" width="512" height="512" rx="96" ry="96" />
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   width="512"
+   height="512"
+   viewBox="0 0 512 512"
+   version="1.1"
+   id="svg23"
+   sodipodi:docname="favicon.svg"
+   inkscape:version="1.2.2 (b0a8486541, 2022-12-01)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview25"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     showgrid="false"
+     inkscape:zoom="1.0261335"
+     inkscape:cx="257.76374"
+     inkscape:cy="226.57871"
+     inkscape:window-width="1351"
+     inkscape:window-height="901"
+     inkscape:window-x="600"
+     inkscape:window-y="269"
+     inkscape:window-maximized="0"
+     inkscape:current-layer="g21" />
+  <defs
+     id="defs5">
+    <clipPath
+       id="roundedSquare">
+      <rect
+         x="0"
+         y="0"
+         width="512"
+         height="512"
+         rx="96"
+         ry="96"
+         id="rect2" />
+    </clipPath>
+    <clipPath
+       clipPathUnits="userSpaceOnUse"
+       id="clipPath5858">
+      <rect
+         style="fill:#000000;fill-opacity:1;stroke:none;stroke-width:24"
+         id="rect5860"
+         width="240"
+         height="120"
+         x="136"
+         y="330" />
     </clipPath>
   </defs>
-  <g clip-path="url(#roundedSquare)">
-    <rect x="0" y="0" width="512" height="512" fill="#E3D6F7" />
+  <g
+     clip-path="url(#roundedSquare)"
+     id="g21">
+    <rect
+       x="0"
+       y="0"
+       width="512"
+       height="512"
+       fill="#E3D6F7"
+       id="rect7"
+       style="fill:#a28ead;fill-opacity:1" />
     <!-- Bowl body: full circle, top half erased below, leaving an
          upward-facing semicircle. -->
-    <circle cx="256" cy="330" r="120" fill="#4A2E7A" />
-    <rect x="0" y="0" width="512" height="330" fill="#E3D6F7" />
     <!-- Bowl rim/opening. -->
-    <ellipse cx="256" cy="330" rx="122" ry="30" fill="#B79CE0" />
     <!-- Raindrops falling toward the bowl. -->
-    <path d="M190,178 C207,196 209,216 190,226 C171,216 173,196 190,178 Z" fill="#5B8DEF" />
-    <path d="M256,140 C277,162 280,187 256,199 C232,187 235,162 256,140 Z" fill="#5B8DEF" />
-    <path d="M322,183 C339,201 341,220 322,230 C303,220 305,201 322,183 Z" fill="#5B8DEF" />
+    <g
+       id="g5878"
+       transform="translate(0,-30.450261)">
+      <g
+         id="g5864"
+         transform="matrix(1.6666667,0,0,1.6666667,-170.66668,-253.26321)">
+        <circle
+           cx="256"
+           cy="330"
+           fill="#4A2E7A"
+           id="circle9"
+           style="fill:#9042ad;fill-opacity:1"
+           r="120"
+           clip-path="url(#clipPath5858)" />
+        <ellipse
+           cx="256"
+           cy="330"
+           rx="120"
+           ry="30"
+           fill="#B79CE0"
+           id="ellipse13"
+           style="fill:#602c74;fill-opacity:1;stroke-width:0.991769" />
+      </g>
+      <g
+         id="g5869"
+         transform="matrix(2.5153889,0,0,2.5153889,-387.93956,-275.99073)">
+        <path
+           d="m 190,178 c 17,18 19,38 0,48 -19,-10 -17,-30 0,-48 z"
+           fill="#5b8def"
+           id="path15" />
+        <path
+           d="m 256,140 c 21,22 24,47 0,59 -24,-12 -21,-37 0,-59 z"
+           fill="#5b8def"
+           id="path17" />
+        <path
+           d="m 322,183 c 17,18 19,37 0,47 -19,-10 -17,-29 0,-47 z"
+           fill="#5b8def"
+           id="path19" />
+      </g>
+    </g>
   </g>
 </svg>
