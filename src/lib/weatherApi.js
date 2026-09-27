@@ -305,6 +305,17 @@ export async function getExtendedForecast(lat, lon, { signal, skipCache = false 
 const MAX_OBSERVATION_STATIONS_TO_TRY = 5;
 const OBSERVATION_MAX_AGE_MS = 90 * 60 * 1000;
 
+// Fresh isn't enough on its own: plenty of stations (including some major
+// airports, e.g. KMDW when checked live) post timely observations with an
+// empty textDescription and no precipitationLastHour at all. Accepting one
+// of those would read as "definitely not raining" (and, being non-null,
+// would also suppress classifySoupcon's hourly-forecast fallback), when
+// it actually says nothing about precipitation either way -- so skip it
+// and try the next station instead.
+function observationHasWeather(props) {
+  return Boolean(props.textDescription?.trim()) || typeof props.precipitationLastHour?.value === "number";
+}
+
 async function findFreshObservation(stationUrls, { signal } = {}) {
   for (const stationUrl of stationUrls.slice(0, MAX_OBSERVATION_STATIONS_TO_TRY)) {
     let obsData;
@@ -319,7 +330,12 @@ async function findFreshObservation(stationUrls, { signal } = {}) {
 
     const props = obsData?.properties;
     const timestamp = props?.timestamp ? new Date(props.timestamp).getTime() : NaN;
-    if (props && !Number.isNaN(timestamp) && Date.now() - timestamp <= OBSERVATION_MAX_AGE_MS) {
+    if (
+      props &&
+      !Number.isNaN(timestamp) &&
+      Date.now() - timestamp <= OBSERVATION_MAX_AGE_MS &&
+      observationHasWeather(props)
+    ) {
       return props;
     }
   }

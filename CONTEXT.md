@@ -151,9 +151,26 @@ existing origin server rather than standing up anything new:
   station for a point isn't guaranteed to have reported recently.
   `getCurrentConditions` (`weatherApi.js`) tries up to 5 of the nearest
   stations in order and uses the first one with a reading within 90
-  minutes; if none qualify, it returns `null` rather than throwing, and
+  minutes *that actually carries weather* (a non-blank `textDescription`
+  or a numeric `precipitationLastHour` — fresh-but-blank observations are
+  common, even from major airports, and would otherwise read as "not
+  raining" while also suppressing the hourly fallback); if none qualify, it returns `null` rather than throwing, and
   `classifySoupcon` falls back to the current hourly forecast period for
   the "currently raining" check in that case.
+- **NWS forecast responses aren't trimmed to "now."** Live
+  `forecast/hourly` responses routinely still lead with the hour that just
+  ended (seen in 3 of 7 cities checked at once), and cached copies age
+  further. `classifySoupcon` drops any period whose `endTime` has passed
+  (takes an injectable `now` for tests) before applying the 12h/48h
+  windows or the level-1 hourly fallback.
+- **Classifier judgment calls settled with the owner (SOUP_PLAN.md item
+  16):** "Partly Cloudy"/"Partly Sunny" are the same sky cover (NWS uses
+  one by night, the other by day — confirmed live), so neither counts as
+  cloudy for level 4 (`NOT_CLOUDY_PHRASES`); the level-1 hourly fallback
+  needs a 40%+ probability (or unhedged wording when none is reported),
+  a stricter bar than levels 2/3, which take any precip wording; precip in
+  the near-term extended periods forces level 4 rather than 5; and
+  "in Vicinity" station readings deliberately count as level 1.
 - **Shared gridpoint lookup + in-flight de-dup:** `getLocationLabel`,
   `getHourlyForecast`, `getExtendedForecast`, and `getCurrentConditions`
   all need the same NWS `/points/{lat},{lon}` response (grid office/x/y,

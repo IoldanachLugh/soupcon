@@ -28,6 +28,17 @@ const SNOW_KEYWORDS = ["snow", "sleet", "blizzard", "flurries", "wintry mix"];
 // "Mostly Clear") reliably contains one or the other, not both, so a single
 // substring pass against each list is enough without needing to rank them.
 const CLOUDY_KEYWORDS = ["cloudy", "overcast", "fog", "foggy", "mist", "haze", "damp"];
+
+// NWS words the same 3/8-5/8 sky cover as "Partly Sunny" by day and
+// "Partly Cloudy" by night (confirmed live: each only ever appears in its
+// own half of the day). "Partly Sunny" never matched CLOUDY_KEYWORDS, so
+// "Partly Cloudy" matching via "cloudy" made the same sky level 4 at night
+// but level 5 by day -- and since the near-term window always includes
+// nights, fair outlooks kept dropping to 4. Per owner decision, partly
+// cloudy/sunny skies don't count as cloudy at all; only Mostly Cloudy,
+// Cloudy, Overcast, fog, etc. do. Stripped (not just skipped) so a
+// combined "Partly Cloudy then Mostly Cloudy" still reads as cloudy.
+const NOT_CLOUDY_PHRASES = ["partly cloudy"];
 const CLEAR_KEYWORDS = ["sunny", "clear"];
 
 function matchesAny(text, keywords) {
@@ -65,6 +76,12 @@ export function periodPrecipType(period, { probabilityThreshold = 40 } = {}) {
   return null;
 }
 
+// Station "in vicinity" readings ("Showers in Vicinity", "Thunderstorm in
+// Vicinity" -- METAR VCSH/VCTS, precipitation within ~5-10 miles but not
+// at the station itself) deliberately count as currently precipitating:
+// per owner decision, that's local enough for level 1. They match the rain
+// keywords on their own, so no special handling is needed -- just don't
+// add an exclusion for them.
 export function observationPrecipType(observation) {
   if (!observation) return null;
   const text = (observation.textDescription || "").toLowerCase();
@@ -99,8 +116,48 @@ const PRECIP_WORDING = {
 };
 
 function periodIndicatesCloudy(period) {
-  const text = (period?.shortForecast || "").toLowerCase();
+  let text = (period?.shortForecast || "").toLowerCase();
+  for (const phrase of NOT_CLOUDY_PHRASES) {
+    text = text.replaceAll(phrase, "");
+  }
   return matchesAny(text, CLOUDY_KEYWORDS);
+}
+
+// Level 1's fallback when no usable observation exists: the current hourly
+// period stands in for "is it precipitating right now," which needs a
+// higher bar than "is precipitation possible sometime in the next 12
+// hours" (levels 2/3). Any rain wording counts for those, but here
+// "Slight Chance Rain Showers" at 15% would otherwise announce "It's
+// raining right now." So this requires the same 40% probability
+// periodPrecipType's numeric fallback uses -- or, when NWS didn't report a
+// probability at all, precip wording without a "chance" hedge (so a bare
+// "Snow" or "Rain" period with no probability still counts, the exact case
+// the snow-fallthrough gotcha in CONTEXT.md was about).
+const CURRENT_PERIOD_MIN_PROBABILITY = 40;
+
+function currentPeriodPrecipType(period) {
+  const type = periodPrecipType(period);
+  if (!type) return null;
+
+  const prob = period.probabilityOfPrecipitation?.value;
+  if (typeof prob === "number") {
+    return prob >= CURRENT_PERIOD_MIN_PROBABILITY ? type : null;
+  }
+  return (period.shortForecast || "").toLowerCase().includes("chance") ? null : type;
+}
+
+// NWS doesn't trim its forecast responses to the current moment: live
+// forecast/hourly responses routinely still lead with the hour that just
+// ended (confirmed across several cities), and a cached copy (see
+// HOURLY_FORECAST_CACHE_TTL_MS) ages further still. Without this, "the
+// current hour" for the level-1 fallback could be an hour that's already
+// over, and the 12h/48h windows would silently be an hour short. Periods
+// without a parseable endTime are kept rather than guessed about.
+function dropEndedPeriods(periods, now) {
+  return periods.filter((period) => {
+    const end = Date.parse(period?.endTime);
+    return Number.isNaN(end) || end > now;
+  });
 }
 
 function firstPrecipType(periods) {
@@ -123,12 +180,24 @@ function firstPrecipType(periods) {
 // - `extendedPeriods`: chronological 12-hour forecast periods (NWS
 //   gridpoint `forecast` `properties.periods`), used only to tell level 4
 //   from level 5 once rain is ruled out for the next 48 hours.
-export function classifySoupcon({ hourlyPeriods = [], observation = null, extendedPeriods = [] } = {}) {
+// - `now`: injectable for tests; periods that ended before it are ignored
+//   (see dropEndedPeriods).
+export function classifySoupcon({
+  hourlyPeriods: allHourlyPeriods = [],
+  observation = null,
+  extendedPeriods: allExtendedPeriods = [],
+  now = Date.now(),
+} = {}) {
+  const hourlyPeriods = dropEndedPeriods(allHourlyPeriods, now);
+  const extendedPeriods = dropEndedPeriods(allExtendedPeriods, now);
+
   // Level 1: currently precipitating. Prefer a real observation; fall back
   // to the current hourly period only when no observation is available at
   // all, so a temporarily-missing reading doesn't just silently skip
-  // level 1.
-  const currentType = observation ? observationPrecipType(observation) : periodPrecipType(hourlyPeriods[0]);
+  // level 1 (with a stricter bar -- see currentPeriodPrecipType).
+  const currentType = observation
+    ? observationPrecipType(observation)
+    : currentPeriodPrecipType(hourlyPeriods[0]);
 
   if (currentType) {
     return { level: 1, label: "SOUPCON1", precipType: currentType, ...PRECIP_WORDING[1][currentType] };
@@ -152,8 +221,15 @@ export function classifySoupcon({ hourlyPeriods = [], observation = null, extend
   // the 48-hour check above -- for cloud cover. Any cloudy/damp period in
   // that window means level 4; otherwise default to level 5, the same
   // "nothing else matched" optimistic default FRTCON's own level 5 used.
+  //
+  // Precipitation in that window also means level 4, not 5: 4 twelve-hour
+  // periods can reach past the 48 hourly periods checked above (e.g. a
+  // lookup made in the evening), and a period worded just "Rain Showers"
+  // has no cloudy keyword -- so it used to fall through to "Clear, sunny
+  // weather is expected for the next several days" with rain in the
+  // forecast, the same fallthrough trap as CONTEXT.md's snow gotcha.
   const nearTerm = extendedPeriods.slice(0, 4);
-  if (nearTerm.some(periodIndicatesCloudy)) {
+  if (nearTerm.some((period) => periodIndicatesCloudy(period) || periodPrecipType(period))) {
     return {
       level: 4,
       label: "SOUPCON4",

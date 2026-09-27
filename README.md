@@ -61,8 +61,21 @@ this is a real judgment call rather than a canonical-code lookup — the
 keyword lists were checked against live NWS output across several cities
 before being trusted, but an unusual phrasing could still be missed.
 "Currently raining" prefers a real station observation when one is fresh
-enough (within 90 minutes, tried across up to 5 nearby stations); if none
-qualifies, it falls back to the current hourly forecast period instead.
+enough (within 90 minutes, tried across up to 5 nearby stations) and
+actually reports weather (many stations post timely observations with a
+blank description); if none qualifies, it falls back to the current hourly
+forecast period instead — but only counts it as "raining right now" at a
+40%+ chance (or, with no probability reported, unhedged wording like
+"Rain" rather than "Chance Rain"). Station "in vicinity" readings
+("Showers in Vicinity") count as currently raining. Forecast periods that
+have already ended are ignored — NWS responses often still lead with the
+hour that just passed.
+
+For the 4-vs-5 split, "Partly Cloudy" (NWS's night wording) and "Partly
+Sunny" (its day wording for the same sky) both count as fair skies; only
+Mostly Cloudy, Cloudy, Overcast, fog and similar mean level 4. Any rain or
+snow in the next four 12-hour extended periods also means level 4, never
+"clear and sunny."
 
 Levels 1-3 don't distinguish rain from snow for the *level* itself (both
 mean "precipitation is happening or coming"), but the on-screen wording and

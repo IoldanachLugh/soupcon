@@ -845,6 +845,70 @@ precipitation events the same?"
     build` all pass.
   - **Not verified live in a browser:** same recurring caveat.
 
+### 16. Post-launch bug review — ✅ FIXED
+
+- **Ask (per user):** "deep dive and analyze and make sure there are no
+  bugs in the new implementation." Reviewed `soupcon.js`, `weatherApi.js`,
+  `cache.js`, `App.jsx`, components, and `sw.js`, and probed live
+  `api.weather.gov` (7 cities at once: hourly period timing, day/night
+  sky wording, the 5 nearest stations' latest observations).
+- **Done (clear-cut bugs, fixed):**
+  - **Ended forecast periods counted as current.** Live NWS
+    `forecast/hourly` responses led with an already-ended hour in 3 of 7
+    cities (e.g. Minneapolis at 14:29 CDT led with 13:00–14:00). That made
+    the level-1 hourly fallback read a past hour as "right now" and cut
+    the 12h/48h windows short by an hour. `classifySoupcon` now drops
+    periods whose `endTime` has passed (hourly and extended), with an
+    injectable `now`; 3 new tests (33/33 passing).
+  - **Blank observations read as "not raining."** Several stations,
+    including Chicago's *nearest* station (KMDW), posted fresh
+    observations with an empty `textDescription` and no
+    `precipitationLastHour`. `findFreshObservation` accepted them, which
+    both read as "definitely dry" and, being non-null, suppressed the
+    hourly fallback. It now also requires a non-blank description or a
+    numeric precip reading. Verified live: Chicago now skips KMDW and uses
+    KORD's real reading.
+  - `npm run lint`, `npm run test` (33/33), `npm run build` all pass.
+- **Done (follow-up, owner-decided — "fix 3-6, include in-vicinity
+  readings as local enough to count"):** these touch the locked-in
+  keyword lists, so were raised as questions first rather than changed
+  unilaterally.
+  - **Partly Cloudy vs. Partly Sunny day/night asymmetry.** Live data
+    (7 cities, all hourly periods) showed "Partly Sunny" only ever in
+    daytime periods and "Partly Cloudy" only at night — the same sky
+    cover, but "Partly Cloudy" matched `cloudy` (level 4) while "Partly
+    Sunny" didn't (level 5). Since the near-term window always includes
+    nights, fair outlooks kept dropping to 4. Now `NOT_CLOUDY_PHRASES`
+    strips "partly cloudy" before the cloudy check, so both are level 5;
+    Mostly Cloudy/Cloudy/Overcast/fog/etc. are still level 4, and
+    "Partly Cloudy then Mostly Cloudy" still reads as cloudy. The old test
+    that locked in "Partly Cloudy → 4" was replaced.
+  - **"Slight Chance" read as "It's raining right now."** The level-1
+    hourly fallback (no usable observation) now uses
+    `currentPeriodPrecipType`: requires ≥40% probability, or — when NWS
+    reports none — precip wording without "chance." Levels 2/3 are
+    unchanged (any precip wording still counts there).
+  - **Level 5 with rain in the extended forecast.** Precip in any of the
+    next 4 extended periods now means level 4, closing the gap where rain
+    past the 48 hourly periods, worded with no cloudy keyword ("Rain
+    Showers," seen live), fell through to "clear and sunny."
+  - **"In Vicinity" station readings:** kept counting as level 1, per
+    owner ("local enough to count") — no logic change; documented in a
+    comment and locked in with a test.
+  - 6 net new tests (39/39). Lint and build pass. Also ran the real
+    classifier against live NWS data for 7 cities; all results were
+    sensible (e.g. Chicago's Mostly Sunny/Partly Cloudy outlook is now
+    level 5, previously 4).
+- **Reported, not fixed (lower severity, no decision yet):** sequential
+  station lookups (each with a 10s timeout) can stall "Looking up..."
+  for up to ~60s when NWS is slow; `getGridpointInfo`'s in-flight de-dup
+  can hand a new lookup an already-aborted request (hard to reach in
+  production since lookup buttons disable while loading); an empty
+  hourly response still defaults to level 5; "Ice Pellets"/"Hail"
+  observations aren't recognized as precipitation.
+- **Not verified live in a browser** — logic changes only, verified via
+  tests and live-API runs of the classifier.
+
 ---
 
 ## Suggested order

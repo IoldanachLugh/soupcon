@@ -115,6 +115,45 @@ describe("classifySoupcon", () => {
     expect(result.precipType).toBe("rain");
   });
 
+  it("does not call a low-probability current hour 'raining right now' when there is no observation", () => {
+    const result = classifySoupcon({
+      observation: null,
+      hourlyPeriods: [hourlyPeriod("Slight Chance Rain Showers", 15), ...clearHours(47)],
+      extendedPeriods: [{ shortForecast: "Sunny" }],
+    });
+    // Still possible rain in the next 12 hours, just not "right now".
+    expect(result.level).toBe(2);
+  });
+
+  it("counts a likely-precipitation current hour as level 1 when there is no observation", () => {
+    const result = classifySoupcon({
+      observation: null,
+      hourlyPeriods: [hourlyPeriod("Chance Rain Showers", 50), ...clearHours(47)],
+      extendedPeriods: [{ shortForecast: "Sunny" }],
+    });
+    expect(result.level).toBe(1);
+  });
+
+  it("does not count hedged 'chance' wording as level 1 when no probability is reported", () => {
+    const result = classifySoupcon({
+      observation: null,
+      hourlyPeriods: [hourlyPeriod("Chance Showers", null), ...clearHours(47)],
+      extendedPeriods: [{ shortForecast: "Sunny" }],
+    });
+    expect(result.level).toBe(2);
+  });
+
+  it("counts 'in vicinity' station readings as currently precipitating", () => {
+    const classify = (textDescription) =>
+      classifySoupcon({
+        observation: { textDescription },
+        hourlyPeriods: clearHours(48),
+        extendedPeriods: [{ shortForecast: "Sunny" }],
+      }).level;
+    expect(classify("Showers in Vicinity")).toBe(1);
+    expect(classify("Thunderstorm in Vicinity")).toBe(1);
+  });
+
   it("does not silently fall through to level 5 for a plain 'Snow' forecast with no reported probability", () => {
     // Regression case: before precip-type detection covered snow keywords,
     // a bare "Snow" period (no "shower"/"rain" substring, no reported
@@ -202,6 +241,75 @@ describe("classifySoupcon", () => {
     expect(result.level).toBe(5);
   });
 
+  it("ignores hourly periods that have already ended", () => {
+    // Live NWS responses often still lead with the hour that just ended --
+    // rain in that past hour must not read as "raining right now".
+    const now = Date.parse("2026-09-27T14:30:00-05:00");
+    const hourlyPeriods = [
+      { ...hourlyPeriod("Rain"), endTime: "2026-09-27T14:00:00-05:00" },
+      ...clearHours(48).map((period) => ({ ...period, endTime: "2026-09-27T15:00:00-05:00" })),
+    ];
+    const result = classifySoupcon({
+      observation: null,
+      hourlyPeriods,
+      extendedPeriods: [{ shortForecast: "Sunny" }],
+      now,
+    });
+    expect(result.level).toBe(5);
+  });
+
+  it("measures the 12-hour window from the first period that hasn't ended", () => {
+    // One ended period at the head + rain at index 12: that's hour 11 of
+    // the real remaining forecast, so level 2, not level 3.
+    const now = Date.parse("2026-09-27T14:30:00-05:00");
+    const hourlyPeriods = [
+      { ...hourlyPeriod("Sunny", 0), endTime: "2026-09-27T14:00:00-05:00" },
+      ...clearHours(11),
+      hourlyPeriod("Rain"),
+      ...clearHours(35),
+    ];
+    const result = classifySoupcon({
+      observation: { textDescription: "Cloudy" },
+      hourlyPeriods,
+      extendedPeriods: [{ shortForecast: "Sunny" }],
+      now,
+    });
+    expect(result.level).toBe(2);
+  });
+
+  it("ignores ended extended periods for the 4-vs-5 distinction", () => {
+    const now = Date.parse("2026-09-27T19:00:00-05:00");
+    const result = classifySoupcon({
+      observation: { textDescription: "Clear" },
+      hourlyPeriods: clearHours(48),
+      extendedPeriods: [
+        { shortForecast: "Mostly Cloudy", endTime: "2026-09-27T18:00:00-05:00" },
+        { shortForecast: "Clear" },
+        { shortForecast: "Sunny" },
+        { shortForecast: "Clear" },
+        { shortForecast: "Sunny" },
+      ],
+      now,
+    });
+    expect(result.level).toBe(5);
+  });
+
+  it("returns level 4, not 'clear and sunny', when near-term extended periods mention rain", () => {
+    // Rain beyond the 48 hourly periods but within the next 4 extended
+    // periods, worded with no cloudy keyword (seen live: "Rain Showers").
+    const result = classifySoupcon({
+      observation: { textDescription: "Clear" },
+      hourlyPeriods: clearHours(48),
+      extendedPeriods: [
+        { shortForecast: "Clear" },
+        { shortForecast: "Sunny" },
+        { shortForecast: "Clear" },
+        { shortForecast: "Rain Showers" },
+      ],
+    });
+    expect(result.level).toBe(4);
+  });
+
   it("only looks at the next 4 extended periods for the 4-vs-5 distinction", () => {
     // A cloudy period 5th in line (outside the ~2-day near-term window)
     // shouldn't pull a genuinely clear near-term outlook down to level 4.
@@ -240,19 +348,29 @@ describe("day/night forecast wording", () => {
     expect(nighttime.level).toBe(5);
   });
 
-  it("treats 'partly cloudy' and 'mostly cloudy' phrasing as equivalent for level 4", () => {
-    const partly = classifySoupcon({
+  // NWS says "Partly Sunny" by day and "Partly Cloudy" by night for the
+  // same sky cover -- these must land on the same level (5), while
+  // "Mostly Cloudy" (used day and night) is level 4.
+  it("treats daytime 'partly sunny' and nighttime 'partly cloudy' as equivalent (level 5)", () => {
+    const classify = (shortForecast) =>
+      classifySoupcon({
+        observation: null,
+        hourlyPeriods: clearHours(48),
+        extendedPeriods: [{ shortForecast }],
+      }).level;
+    expect(classify("Partly Sunny")).toBe(5);
+    expect(classify("Partly Cloudy")).toBe(5);
+    expect(classify("Mostly Cloudy")).toBe(4);
+    expect(classify("Cloudy")).toBe(4);
+  });
+
+  it("still reads a combined 'Partly Cloudy then Mostly Cloudy' period as cloudy", () => {
+    const result = classifySoupcon({
       observation: null,
       hourlyPeriods: clearHours(48),
-      extendedPeriods: [{ shortForecast: "Partly Cloudy" }],
+      extendedPeriods: [{ shortForecast: "Partly Cloudy then Mostly Cloudy" }],
     });
-    const mostly = classifySoupcon({
-      observation: null,
-      hourlyPeriods: clearHours(48),
-      extendedPeriods: [{ shortForecast: "Mostly Cloudy" }],
-    });
-    expect(partly.level).toBe(4);
-    expect(mostly.level).toBe(4);
+    expect(result.level).toBe(4);
   });
 
   // Locks in real shortForecast strings pulled from live api.weather.gov
