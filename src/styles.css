@@ -6,7 +6,7 @@
 html,
 body,
 #root {
-  background: #0b1f3a;
+  background: #1a0f2e;
   margin: 0;
   padding: 0;
   min-height: 100%;
@@ -115,8 +115,8 @@ div[role="dialog"] {
 
 .app-page {
   min-height: 100vh;
-  background: #0b1f3a;
-  color: #e5ecf5;
+  background: #1a0f2e;
+  color: #ece6f7;
   font-family: Arial, Helvetica, sans-serif;
   padding: 19px;
   box-sizing: border-box;
@@ -150,8 +150,8 @@ div[role="dialog"] {
    ========================================================================== */
 
 .app-header {
-  background: #122b4dc0;
-  border: 1px solid #27466f;
+  background: #2d1b4ac0;
+  border: 1px solid #4a3270;
   border-radius: 18px;
   padding: 19px;
   margin-bottom: 20px;
@@ -174,7 +174,7 @@ div[role="dialog"] {
 
 .app-subtitle {
   margin-top: 10px;
-  color: #c8d7ea;
+  color: #d8cdf0;
   font-size: 16px;
 }
 
@@ -185,8 +185,8 @@ div[role="dialog"] {
 }
 
 .menu-button {
-  background: #0f2947;
-  border: 1px solid #27466f;
+  background: #251542;
+  border: 1px solid #4a3270;
   border-radius: 10px;
   width: 44px;
   height: 44px;
@@ -213,8 +213,8 @@ div[role="dialog"] {
   position: absolute;
   top: 52px;
   right: 0;
-  background: #122b4d;
-  border: 1px solid #27466f;
+  background: #2d1b4a;
+  border: 1px solid #4a3270;
   border-radius: 12px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
   min-width: 220px;
@@ -228,8 +228,8 @@ div[role="dialog"] {
   text-align: left;
   background: none;
   border: none;
-  border-bottom: 1px solid #1c3a5f;
-  color: #dbe7f5;
+  border-bottom: 1px solid #3a2456;
+  color: #e5d9f5;
   padding: 14px 16px;
   font-size: 15px;
   cursor: pointer;
@@ -248,8 +248,8 @@ div[role="dialog"] {
 }
 
 .card {
-  background: #122b4dc0;
-  border: 1px solid #27466f;
+  background: #2d1b4ac0;
+  border: 1px solid #4a3270;
   border-radius: 18px;
   padding: 16px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
@@ -270,7 +270,7 @@ div[role="dialog"] {
 }
 
 .body-text {
-  color: #dbe7f5;
+  color: #e5d9f5;
 }
 
 /* ==========================================================================
@@ -279,7 +279,7 @@ div[role="dialog"] {
 
 .btn-primary {
   background: #60a5fa;
-  color: #0b1f3a;
+  color: #1a0f2e;
   border: none;
   border-radius: 12px;
   padding: 12px 18px;
@@ -290,7 +290,7 @@ div[role="dialog"] {
 
 .btn-secondary {
   background: #dbeafe;
-  color: #0b1f3a;
+  color: #1a0f2e;
   border: none;
   border-radius: 12px;
   padding: 12px 18px;
@@ -302,8 +302,8 @@ div[role="dialog"] {
 .zip-input {
   padding: 12px 14px;
   border-radius: 12px;
-  border: 1px solid #5f7ea6;
-  background: #0f2543;
+  border: 1px solid #6d54a0;
+  background: #251542;
   color: #ffffff;
   font-size: 15px;
   min-width: 180px;
@@ -324,7 +324,7 @@ div[role="dialog"] {
 }
 
 .status-box {
-  background: #16345c;
+  background: #2a1750;
   border: 1px solid #3b82f6;
   border-radius: 14px;
   padding: 14px;
@@ -385,7 +385,7 @@ div[role="dialog"] {
 .soupcon-updated-at {
   margin-top: 8px;
   font-size: 13px;
-  color: #93a5c4;
+  color: #a99bc9;
 }
 
 .soupcon-title-large {
@@ -427,7 +427,7 @@ div[role="dialog"] {
   display: block;
   margin-top: 8px;
   font-size: 13px;
-  color: #93a5c4;
+  color: #a99bc9;
 }
 
 .soupcon-badge {
@@ -516,8 +516,8 @@ div[role="dialog"] {
 }
 
 .nws-alert-card {
-  background: #122b4d;
-  border: 1px solid #27466f;
+  background: #2d1b4a;
+  border: 1px solid #4a3270;
   border-radius: 16px;
   padding: 16px;
   margin-bottom: 14px;
@@ -545,11 +545,11 @@ div[role="dialog"] {
 
 .nws-alert-area-desc {
   margin-top: 8px;
-  color: #c8d7ea;
+  color: #d8cdf0;
 }
 
 .nws-alert-headline {
-  color: #dbe7f5;
+  color: #e5d9f5;
 }
 
 .nws-alert-meta-grid {
@@ -557,12 +557,12 @@ div[role="dialog"] {
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 10px;
   margin-top: 10px;
-  color: #dbe7f5;
+  color: #e5d9f5;
 }
 
 .nws-alert-description {
   white-space: pre-line;
-  color: #dbe7f5;
+  color: #e5d9f5;
   margin-top: 12px;
 }
 
@@ -573,7 +573,7 @@ div[role="dialog"] {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(5, 12, 26, 0.72);
+  background: rgba(26, 15, 46, 0.72);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -582,8 +582,8 @@ div[role="dialog"] {
 }
 
 .modal-card {
-  background: #122b4d;
-  border: 1px solid #27466f;
+  background: #2d1b4a;
+  border: 1px solid #4a3270;
   border-radius: 18px;
   padding: 24px;
   max-width: 560px;
@@ -620,7 +620,7 @@ div[role="dialog"] {
 .modal-close-button {
   background: none;
   border: none;
-  color: #c8d7ea;
+  color: #d8cdf0;
   font-size: 26px;
   line-height: 1;
   cursor: pointer;
@@ -630,7 +630,7 @@ div[role="dialog"] {
 
 .modal-print-button {
   background: #dbeafe;
-  color: #0b1f3a;
+  color: #1a0f2e;
   border: none;
   border-radius: 10px;
   padding: 8px 14px;
@@ -660,16 +660,16 @@ div[role="dialog"] {
 }
 
 .modal-list-item {
-  color: #dbe7f5;
+  color: #e5d9f5;
   margin-bottom: 4px;
 }
 
 .modal-list-item--spaced {
-  color: #dbe7f5;
+  color: #e5d9f5;
   margin-bottom: 8px;
 }
 
 .modal-paragraph {
-  color: #dbe7f5;
+  color: #e5d9f5;
   margin-top: 12px;
 }

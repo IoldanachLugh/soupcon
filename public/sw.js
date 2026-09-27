@@ -1,8 +1,8 @@
 // Deliberately minimal service worker.
 //
-// FRTCON shows live weather alert data, so this app should NOT serve
+// SOUPCON shows live rain-forecast data, so this app should NOT serve
 // cached/stale content when offline or between updates — showing someone
-// an out-of-date severe weather alert would be actively misleading, unlike
+// an out-of-date rain forecast would be actively misleading, unlike
 // e.g. a notes app where a stale cache is harmless. So this service worker
 // exists ONLY to satisfy Chrome's installability requirement (a registered
 // service worker with a fetch handler is required for the beforeinstallprompt
@@ -67,19 +67,19 @@ self.addEventListener("fetch", (event) => {
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>French Toast Conditions</title>
+    <title>Soup Conditions</title>
     <style>
       html, body { height: 100%; margin: 0; }
       body {
         display: flex; align-items: center; justify-content: center;
         min-height: 100vh; box-sizing: border-box; padding: 24px;
-        background: #0b1f3a; color: #e5ecf5;
+        background: #1a0f2e; color: #ece6f7;
         font-family: Arial, Helvetica, sans-serif; text-align: center;
       }
       p { max-width: 320px; }
       button {
         margin-top: 16px; display: none;
-        background: #60a5fa; color: #0b1f3a; border: none;
+        background: #60a5fa; color: #1a0f2e; border: none;
         border-radius: 12px; padding: 12px 18px;
         font-size: 15px; font-weight: bold; cursor: pointer;
       }
@@ -87,12 +87,12 @@ self.addEventListener("fetch", (event) => {
   </head>
   <body>
     <div>
-      <p id="frtcon-reconnect-text">Reconnecting&hellip;</p>
-      <button id="frtcon-reconnect-retry" type="button">Retry</button>
+      <p id="soupcon-reconnect-text">Reconnecting&hellip;</p>
+      <button id="soupcon-reconnect-retry" type="button">Retry</button>
     </div>
     <script>
       (function () {
-        var STORAGE_KEY = "frtcon_reconnect_attempts";
+        var STORAGE_KEY = "soupcon_reconnect_attempts";
         var MAX_ATTEMPTS = 4;
         var RETRY_DELAYS_MS = [1500, 3000, 6000, 6000];
 
@@ -111,8 +111,8 @@ self.addEventListener("fetch", (event) => {
           }
         }
 
-        var textEl = document.getElementById("frtcon-reconnect-text");
-        var retryButton = document.getElementById("frtcon-reconnect-retry");
+        var textEl = document.getElementById("soupcon-reconnect-text");
+        var retryButton = document.getElementById("soupcon-reconnect-retry");
 
         function giveUp(message) {
           setAttempts(0);
@@ -142,7 +142,7 @@ self.addEventListener("fetch", (event) => {
         } else {
           var attempts = getAttempts();
           if (attempts >= MAX_ATTEMPTS) {
-            giveUp("Can't reach FRTCON right now. Check your connection and try again.");
+            giveUp("Can't reach SOUPCON right now. Check your connection and try again.");
           } else {
             setAttempts(attempts + 1);
             var delay = RETRY_DELAYS_MS[Math.min(attempts, RETRY_DELAYS_MS.length - 1)];

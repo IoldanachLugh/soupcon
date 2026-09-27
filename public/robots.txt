@@ -26,4 +26,4 @@ Disallow: /
 User-agent: meta-externalagent
 Disallow: /
 
-Sitemap: https://frtcon.com/sitemap.xml
+Sitemap: https://soupcon.org/sitemap.xml

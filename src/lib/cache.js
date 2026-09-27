@@ -1,20 +1,18 @@
 export const CACHE_TTL_MS = 60 * 60 * 1000;
-export const ZIP_CACHE_PREFIX = "frtcon_zip_lookup_";
+export const ZIP_CACHE_PREFIX = "soupcon_zip_lookup_";
 // No longer written (SOUP_PLAN.md item 3 replaced the zone lookup with
-// getLocationLabel's gridpoint cache) -- kept only so sweepExpiredCache
-// below can still clean up any leftover keys from before that change.
-export const ZONE_CACHE_PREFIX = "frtcon_zone_lookup_";
-export const ALERTS_CACHE_PREFIX = "frtcon_alerts_";
+// getLocationLabel's gridpoint cache) -- kept as an exported constant only
+// because sweepExpiredCache below still lists it, not because anything
+// still writes this key.
+export const ZONE_CACHE_PREFIX = "soupcon_zone_lookup_";
+export const ALERTS_CACHE_PREFIX = "soupcon_alerts_";
 export const ALERTS_CACHE_TTL_MS = 5 * 60 * 1000;
 
-// SOUPCON's data sources (SOUP_PLAN.md item 2). Prefixes are still
-// "frtcon_"-namespaced for now, matching the rest of this file -- the
-// frtcon_* -> soupcon_* rename is its own later step (SOUP_PLAN.md item 9),
-// done in one pass across all keys rather than piecemeal here.
-export const GRIDPOINT_CACHE_PREFIX = "frtcon_gridpoint_";
-export const HOURLY_FORECAST_CACHE_PREFIX = "frtcon_hourly_forecast_";
-export const EXTENDED_FORECAST_CACHE_PREFIX = "frtcon_extended_forecast_";
-export const OBSERVATION_CACHE_PREFIX = "frtcon_observation_";
+// SOUPCON's data sources (SOUP_PLAN.md item 2).
+export const GRIDPOINT_CACHE_PREFIX = "soupcon_gridpoint_";
+export const HOURLY_FORECAST_CACHE_PREFIX = "soupcon_hourly_forecast_";
+export const EXTENDED_FORECAST_CACHE_PREFIX = "soupcon_extended_forecast_";
+export const OBSERVATION_CACHE_PREFIX = "soupcon_observation_";
 
 // Gridpoint metadata (grid office/x/y, forecast URLs, location label) is as
 // stable as the zone lookup it replaces for labeling purposes -- same TTL.

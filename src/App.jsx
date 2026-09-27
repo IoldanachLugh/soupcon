@@ -206,7 +206,7 @@ export default function App() {
   // Resolves to true if it actually landed a result, false otherwise
   // (failed, or superseded by a newer lookup before it finished) -- callers
   // use this to decide whether the lookup is worth remembering for next
-  // visit (see the frtcon_last_source/frtcon_last_zip writes below), so a
+  // visit (see the soupcon_last_source/soupcon_last_zip writes below), so a
   // denied permission or a bad ZIP doesn't get silently auto-retried and
   // re-shown as the first thing a returning visitor sees.
   // `controller`, if given, is one the caller already owns and has set as
@@ -380,7 +380,7 @@ export default function App() {
       // got saved as "last successful method" too, so every later visit
       // silently re-ran the same failing lookup and opened straight on an
       // error instead of the last good result.
-      if (succeeded) safeSetItem("frtcon_last_source", "browser");
+      if (succeeded) safeSetItem("soupcon_last_source", "browser");
     };
 
     const onFinalError = (geoError) => {
@@ -441,14 +441,9 @@ export default function App() {
     // (SoupconMessage) -- headline, title, and the same randomized
     // commentary lines currently on screen -- rather than the shorter
     // soupcon.title/soupcon.reason summary shown above it. No URL here --
-    // the sharer.php dialog already attaches frtcon.com as a link card via
+    // the sharer.php dialog already attaches soupcon.org as a link card via
     // its own `u` param, so repeating it as plain text in the pasted body
     // would just duplicate it.
-    //
-    // Still shares frtcon.com's URL -- SOUP_PLAN.md items 7/8 own the
-    // domain rewrite (index.html/manifest.json/robots.txt/etc.), and this
-    // Facebook sharer call specifically wasn't named in either item's file
-    // list, so flagging it here so it isn't missed when those land.
     const shareText = [
       `${soupconMessage.headline} - ${result.locationLabel} is currently at Soup Condition #${soupcon.level}.`,
       soupconMessage.title,
@@ -466,12 +461,12 @@ export default function App() {
     // auto-granted (silent) clipboard write only takes that fast path
     // while this document still has focus -- once focus moves, a write
     // falls back to an explicit permission prompt instead. So the write
-    // has to happen first, while frtcon.com still definitely has focus,
+    // has to happen first, while soupcon.org still definitely has focus,
     // with window.open() following it. The write itself resolves almost
     // instantly, well within the few seconds a click's "user activation"
     // stays valid, so this doesn't risk window.open() getting popup-blocked.
     const openFacebook = () => {
-      window.open("https://www.facebook.com/sharer/sharer.php?u=https://frtcon.com", "_blank", "noopener,noreferrer");
+      window.open("https://www.facebook.com/sharer/sharer.php?u=https://soupcon.org", "_blank", "noopener,noreferrer");
     };
 
     if (navigator.clipboard?.writeText) {
@@ -527,8 +522,8 @@ export default function App() {
         // every later visit silently re-ran the same failing lookup and
         // opened straight on an error instead of the last good result.
         if (succeeded) {
-          safeSetItem("frtcon_last_zip", zipValue);
-          safeSetItem("frtcon_last_source", "zip");
+          safeSetItem("soupcon_last_zip", zipValue);
+          safeSetItem("soupcon_last_source", "zip");
         }
       } catch (err) {
         if (signal.aborted || mySeq !== requestSeqRef.current) return;
@@ -553,12 +548,12 @@ export default function App() {
   // rather than making a returning visitor click a button again. Runs once
   // on mount only -- intentionally does not re-run on every render.
   useEffect(() => {
-    const savedZip = safeGetItem("frtcon_last_zip");
+    const savedZip = safeGetItem("soupcon_last_zip");
     if (savedZip && isValidZip(savedZip)) {
       setZip(savedZip);
     }
 
-    const savedSource = safeGetItem("frtcon_last_source");
+    const savedSource = safeGetItem("soupcon_last_source");
     if (savedSource === "browser") {
       // A permission denial won't have changed on its own since the last
       // visit, so silently auto-retrying it would just flash "Locating

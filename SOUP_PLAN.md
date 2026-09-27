@@ -441,7 +441,7 @@ used by `App.jsx` until item 5). Pure functions, no React/DOM dependency
     `PLAN.md`'s own #9 treated as warranting a real before/after visual
     pass, not just a successful build.
 
-### 7. Branding/meta pass
+### 7. Branding/meta pass — ✅ FIXED
 
 - `package.json` `name` (`frtcon_weather_alert_app` → something like
   `soupcon_weather_app`).
@@ -453,21 +453,119 @@ used by `App.jsx` until item 5). Pure functions, no React/DOM dependency
   than inventing brand artwork unilaterally.
 - `theme-color`/`background_color` — pick together with the visual palette
   open question above.
+- **Done:**
+  - **Icons (asked, per decision above):** user specified the design
+    directly — "a simple two tone bowl (oval on top of an upwards facing
+    semicircle) in dark and light purple under some blue raindrops, all on
+    a lavender background." Built as hand-authored SVG (a full circle with
+    its top half erased by a same-color rect, leaving a semicircle "bowl
+    body"; an ellipse "rim" sitting on the flat cut line; three bezier
+    teardrop raindrops above), rasterized via `rsvg-convert`/ImageMagick
+    (both available in this environment) into `icon-192.png`,
+    `icon-512.png`, `icon-512-maskable.png` (full-bleed variant, design
+    scaled to 72% and centered for safe-zone margin, same reasoning the
+    old maskable icon used), `apple-touch-icon.png` (180x180, same
+    full-bleed variant), `favicon.svg` (the rounded-square "any" variant,
+    scales fine), and `favicon.ico` (multi-res 16/32/48 via `convert`).
+    Colors: lavender bg `#E3D6F7`, dark purple bowl `#4A2E7A`, light purple
+    rim `#B79CE0`, blue raindrops `#5B8DEF`. Visually checked at 512/192/64
+    px before finalizing -- legible even at favicon size. Old snowflake
+    assets fully replaced, not kept alongside.
+  - **Color palette (asked, "switch to a new rain-coded palette"):**
+    proposed and applied keeping the *blue* accent family (buttons,
+    status-box border/text, alert chips) unchanged -- it ties directly to
+    the icon's raindrops, so "purple shell + blue rain accents" mirrors
+    the icon exactly rather than going all-purple. Converted only the
+    navy "chrome" colors (page/card/modal backgrounds, borders, dropdown
+    background, input background, dark-text-on-light-button) to a purple
+    equivalent at matching lightness, e.g. `#0b1f3a`→`#1a0f2e` (darkest
+    bg), `#122b4d`→`#2d1b4a` (card bg), `#27466f`→`#4a3270` (border) --
+    full mapping across `src/styles.css`, `index.html`'s theme-color,
+    `manifest.json`'s theme/background colors, and `public/sw.js`'s
+    fallback page (same app, needed the same palette). Deliberately left
+    unchanged: the Facebook-brand blue share button, the red error box,
+    the amber condition-status callout box, and the five severity-scale
+    badge colors -- none of those are "the app's chrome," they're
+    semantic/brand colors independent of the SOUPCON hue.
+  - `package.json` name, `index.html` title/description/OG tags (text,
+    separate from the theme-color/palette work above), and
+    `manifest.json` name/short_name/description all updated to SOUPCON
+    copy and the soupcon.org domain.
+  - `npm run lint`, `npm run test` (22/22), and `npm run build` all pass;
+    confirmed the new icons land in `dist/` and `manifest.json`/
+    `package.json` are still valid JSON.
+  - **Not verified live in a browser:** the icons/palette are reviewed as
+    rendered PNGs (via the icon-generation step itself) and code, but the
+    actual running app's look -- installed PWA icon, theme-color browser
+    chrome tinting, overall in-app color harmony -- hasn't been seen
+    live, same recurring gap as items 3-6.
 
-### 8. Domain/crawler files
+### 8. Domain/crawler files — ✅ FIXED
 
 - `public/robots.txt`, `public/sitemap.xml`, `public/index.md`: `frtcon.com`
   → `soupcon.org` URLs.
 - `.htaccess` (if any domain-specific values are in it — check when this
   step is reached).
+- **Done:**
+  - `robots.txt`'s `Sitemap:` line and `sitemap.xml`'s `<loc>` both updated
+    to `soupcon.org`.
+  - `.htaccess` checked — no domain-specific values in it at all (just
+    relative rewrite rules and headers), so no change needed.
+  - `index.md` fully rewritten, not just domain-swapped -- it's a markdown
+    mirror of the app's own description (served for `Accept: text/markdown`
+    requests), so leaving FRTCON-era wording there while everything else
+    changed would be a glaring, publicly-visible inconsistency. Now
+    describes the SOUPCON scale and its actual data sources (hourly
+    forecast, extended forecast, current observations -- not "active
+    alerts").
+  - **Also fixed while here, found as a gap in item 6's done note:** the
+    Share button's Facebook `sharer.php?u=` URL and its surrounding
+    comments in `App.jsx` (`handleShare`) still said `frtcon.com` -- not
+    explicitly named in this item's file list, but clearly domain-scope
+    work, so folded in now rather than left for later.
+  - `npm run lint`, `npm run test` (22/22), and `npm run build` all pass.
 
-### 9. localStorage key prefixes — `src/lib/cache.js`
+### 9. localStorage key prefixes — `src/lib/cache.js` — ✅ FIXED
 
 - `frtcon_zip_lookup_` / `frtcon_zone_lookup_` / `frtcon_alerts_` →
   `soupcon_*` equivalents, plus new prefixes for hourly/observation/extended
   caches from item 2. `frtcon_last_source` / `frtcon_last_zip` → `soupcon_*`.
 - No migration shim needed — `soupcon.org` is a different origin, so old
   `frtcon_*` keys never exist there in the first place.
+- **Done:**
+  - All seven prefixes in `cache.js` renamed
+    (`ZIP_CACHE_PREFIX`/`ZONE_CACHE_PREFIX`/`ALERTS_CACHE_PREFIX`/
+    `GRIDPOINT_CACHE_PREFIX`/`HOURLY_FORECAST_CACHE_PREFIX`/
+    `EXTENDED_FORECAST_CACHE_PREFIX`/`OBSERVATION_CACHE_PREFIX`), plus the
+    stale comments explaining the temporary `frtcon_`-namespacing (no
+    longer applicable) cleaned up.
+  - `App.jsx`'s `soupcon_last_source`/`soupcon_last_zip` (both read and
+    write call sites, plus a comment) renamed from `frtcon_last_*`.
+  - **Also handled the gap found in item 6's done note**, since it belongs
+    here: `src/main.jsx`'s `sessionStorage.removeItem(...)` call and
+    `public/sw.js`'s own `STORAGE_KEY` constant, both now
+    `soupcon_reconnect_attempts` (they share the same key across two
+    files, so both needed updating together, not just one). Also renamed
+    `sw.js`'s `frtcon-reconnect-text`/`frtcon-reconnect-retry` DOM ids
+    (not strictly a storage key, but the same category of internal
+    branding-prefixed identifier, found in the same file) and fixed its
+    hardcoded `<title>Soup Conditions</title>` and "Can't reach SOUPCON
+    right now" fallback-page text, plus a top-of-file comment describing
+    what the app shows.
+  - No migration code added, per the plan's own reasoning -- confirmed
+    still applicable: `soupcon.org` is a new origin, so no `frtcon_*` keys
+    exist there to migrate from.
+  - Repo-wide grep confirms zero remaining `frtcon`/`FRTCON`/`French Toast`
+    hits anywhere in `src/`, `public/`, `index.html`, or `package.json`
+    except historical code comments explaining past decisions (e.g.
+    "Unlike FRTCON...", "FRTCON-era getZoneByPoint name") -- all
+    intentionally kept, matching this project's own established comment
+    style.
+  - `npm run lint`, `npm run test` (22/22), and `npm run build` all pass.
+  - **Not verified live in a browser:** the reconnect-fallback page (only
+    reachable via a real navigation failure) and the ZIP/source
+    auto-resume behavior are reviewed as code only -- same recurring gap
+    as items 3-7.
 
 ### 10. Docs rewrite — `README.md` and `CONTEXT.md`
 

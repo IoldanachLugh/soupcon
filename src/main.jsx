@@ -10,7 +10,7 @@ import { sweepExpiredCache } from './lib/cache.js'
 // carry over and make an unrelated later failure back off faster than it
 // should.
 try {
-  sessionStorage.removeItem('frtcon_reconnect_attempts')
+  sessionStorage.removeItem('soupcon_reconnect_attempts')
 } catch {
   // Ignore storage failures (see lib/cache.js for why this can throw).
 }

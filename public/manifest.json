@@ -1,12 +1,12 @@
 {
-  "name": "French Toast Conditions",
-  "short_name": "FRTCON",
-  "description": "Check active winter weather alerts and your current French Toast Condition.",
+  "name": "Soup Conditions",
+  "short_name": "SOUPCON",
+  "description": "Check the rain outlook for your area and your current Soup Condition.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#0b1f3a",
-  "theme_color": "#0b1f3a",
+  "background_color": "#1a0f2e",
+  "theme_color": "#1a0f2e",
   "orientation": "portrait-primary",
   "icons": [
     {
