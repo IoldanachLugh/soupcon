@@ -278,7 +278,7 @@ used by `App.jsx` until item 5). Pure functions, no React/DOM dependency
     the first time here) -- worth a real interactive pass before treating
     this as fully confirmed, the way earlier PLAN.md items were.
 
-### 4. Content rewrite
+### 4. Content rewrite — ✅ FIXED
 
 - New `src/data/soupMessages.js` (replaces `alertMessages.js`): 5 levels,
   soup/rain-themed headline + title + rotating commentary lines, same shape
@@ -286,6 +286,45 @@ used by `App.jsx` until item 5). Pure functions, no React/DOM dependency
 - `src/data/recipe.js` → chicken noodle soup recipe (per decision above).
 - Copy pass over hardcoded strings in `App.jsx` (Share button text,
   headings like "Active Zone Alerts", aria-labels mentioning FRTCON).
+- **Done:**
+  - **`src/data/soupMessages.js`** created with 5 levels matching the
+    locked-in SOUPCON scale (currently raining / rain in 12h / rain in 48h
+    / cloudy-damp / clear-sunny), each with a `#SOUPCONn CONDITION`
+    headline, a short title, and 20 rotating commentary lines mirroring
+    the old FRTCON copy's joke density and structure but reworked around
+    rain/soup imagery (broth, stockpots, umbrellas, gutters, egg noodles)
+    instead of French toast/winter imagery. Same `{headline, title, body}`
+    shape as before, so `pickRandomItems`/the `App.jsx` consumption code
+    needed no changes beyond the import swap.
+  - **`alertMessages.js` deleted** (not just superseded) once confirmed to
+    have no other consumers — `soupMessages.js` fully replaces it, unlike
+    `frtcon.js` which item 1 deliberately left in place until item 5.
+  - **`src/data/recipe.js`** replaced with a standard chicken noodle soup
+    recipe (per decision above — rotating soup recipes are explicitly
+    future work, not built here).
+  - **`RecipeModal.jsx` cleanup found along the way:** the component had a
+    `"Wait."`-prefix bold-emphasis special case written specifically for
+    the old French toast recipe's phrasing ("Wait. You'll be tempted to
+    flip too soon..."). The new recipe has no step matching that pattern,
+    making the regex dead weight rather than a latent feature, so it was
+    removed in favor of plain step rendering — a direct consequence of
+    this item's content swap, not a tangential refactor, so handled here
+    rather than deferred to item 5 (which only expected recipe *title*
+    text to change, not this).
+  - **Copy pass in `App.jsx`:** `<h1>` ("What's my Soup Condition?"), the
+    subtitle ("Check the rain outlook for your area and see your current
+    Soup Condition."), the dropdown menu item ("Soup Recipe"), the share
+    text's "Soup Condition #N" line, and both "copy your ... status"
+    toast messages (now "SOUPCON status"). Confirmed via grep that no
+    `FRTCON`/`French Toast` text remains anywhere in `App.jsx` -- what's
+    left there (`frtcon_*` localStorage keys, `.frtcon-*` CSS classes,
+    `frtcon.com`'s share URL) is exactly and only the items 6/7/8/9
+    territory called out in earlier Done notes.
+  - `npm run lint`, `npm run test` (19/19), and `npm run build` all pass.
+  - **Not verified live in a browser** (same gap as item 3 — Claude in
+    Chrome isn't connected this session): the recipe modal's rendering and
+    print view, and the on-screen condition box's new copy, haven't been
+    visually confirmed, only reviewed as code/JSX.
 
 ### 5. Component/file renames
 

@@ -46,23 +46,11 @@ export function RecipeModal({ open, onClose, returnFocusRef }) {
         <div className="modal-section--spaced">
           <div className="modal-section-title">Steps</div>
           <ol className="modal-list">
-            {RECIPE.steps.map((step, index) => {
-              const waitMatch = step.match(/^(Wait\.?)(\s+[\s\S]*)$/);
-              return (
-                <li key={index} className="modal-list-item--spaced">
-                  {waitMatch ? (
-                    <>
-                      <strong>
-                        <em>{waitMatch[1]}</em>
-                      </strong>
-                      {waitMatch[2]}
-                    </>
-                  ) : (
-                    step
-                  )}
-                </li>
-              );
-            })}
+            {RECIPE.steps.map((step, index) => (
+              <li key={index} className="modal-list-item--spaced">
+                {step}
+              </li>
+            ))}
           </ol>
         </div>
       </div>

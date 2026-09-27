@@ -13,7 +13,7 @@ import {
 } from "./lib/weatherApi";
 import { safeGetItem, safeSetItem } from "./lib/cache";
 import { classifySoupcon, pickRandomItems } from "./lib/soupcon";
-import { alertMessages } from "./data/alertMessages";
+import { soupMessages } from "./data/soupMessages";
 import { SnowOverlay } from "./components/SnowOverlay";
 import { FrtconBadge } from "./components/FrtconBadge";
 import { FrtconMessage } from "./components/FrtconMessage";
@@ -162,12 +162,6 @@ export default function App() {
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [menuOpen]);
 
-  // SOUP_PLAN.md item 4 still owes this app soup-themed content --
-  // `alertMessages` is still the FRTCON-era French Toast copy, so the
-  // headline/title/commentary lines rendered below will read as French
-  // Toast flavor text under a SOUPCON-numbered badge until that item lands.
-  // This item is scoped to the data plumbing only (SOUPCON level in, right
-  // message picked out by that level), not the content itself.
   const soupcon = useMemo(() => {
     if (!result) return null;
     return classifySoupcon({
@@ -185,7 +179,7 @@ export default function App() {
   // background refresh that leaves the level unchanged.
   const soupconMessage = useMemo(() => {
     if (!soupcon) return null;
-    const message = alertMessages[soupcon.level] || alertMessages[5];
+    const message = soupMessages[soupcon.level] || soupMessages[5];
     return {
       headline: message.headline,
       title: message.title,
@@ -432,7 +426,7 @@ export default function App() {
 
   // Facebook's sharer.php dialog only accepts a URL, not custom text/quote
   // parameters (see CONTEXT.md), so there's no way to make the resulting
-  // post auto-populate with the FRTCON status. Instead, this copies the
+  // post auto-populate with the SOUPCON status. Instead, this copies the
   // status text to the clipboard and opens the sharer in a new tab, so the
   // user can paste it into the post once they get there.
   function handleShare() {
@@ -446,13 +440,12 @@ export default function App() {
     // its own `u` param, so repeating it as plain text in the pasted body
     // would just duplicate it.
     //
-    // Still says "French Toast Condition" and still shares frtcon.com --
-    // SOUP_PLAN.md items 4/7/8 own the content/domain rewrite; this item is
-    // scoped to the soupcon/soupconMessage data plumbing only. Flagging
-    // here since this particular call site wasn't explicitly named in
-    // those items' scope and shouldn't get missed when they land.
+    // Still shares frtcon.com's URL -- SOUP_PLAN.md items 7/8 own the
+    // domain rewrite (index.html/manifest.json/robots.txt/etc.), and this
+    // Facebook sharer call specifically wasn't named in either item's file
+    // list, so flagging it here so it isn't missed when those land.
     const shareText = [
-      `${soupconMessage.headline} - ${result.locationLabel} is currently at French Toast Condition #${soupcon.level}.`,
+      `${soupconMessage.headline} - ${result.locationLabel} is currently at Soup Condition #${soupcon.level}.`,
       soupconMessage.title,
       ...soupconMessage.lines,
     ].join("\n");
@@ -485,11 +478,11 @@ export default function App() {
         })
         .catch(() => {
           openFacebook();
-          showToast("Couldn't copy automatically — copy your FRTCON status before posting.");
+          showToast("Couldn't copy automatically — copy your SOUPCON status before posting.");
         });
     } else {
       openFacebook();
-      showToast("Couldn't copy automatically — copy your FRTCON status before posting.");
+      showToast("Couldn't copy automatically — copy your SOUPCON status before posting.");
     }
   }
 
@@ -596,7 +589,7 @@ export default function App() {
       <div className="app-wrap">
         <div className="app-header">
           <div className="header-top-row">
-            <h1 className="app-title">What&apos;s my French Toast condition?</h1>
+            <h1 className="app-title">What&apos;s my Soup Condition?</h1>
 
             <div className="menu-button-wrap">
               <button
@@ -624,7 +617,7 @@ export default function App() {
                         setRecipeOpen(true);
                       }}
                     >
-                      French Toast Recipe
+                      Soup Recipe
                     </button>
 
                     {!isStandalone && installPromptEvent ? (
@@ -652,7 +645,7 @@ export default function App() {
           </div>
 
           <div className="app-subtitle">
-            Check active winter alerts for your area and see your current French Toast Condition.
+            Check the rain outlook for your area and see your current Soup Condition.
           </div>
         </div>
 
