@@ -180,6 +180,25 @@ markdown negotiation, AI crawler rules, or content signals. Addressed in
   be a **caching artifact**, not a real CSS bug — confirmed via incognito
   testing. Worth ruling out caching first for any "looks different on a
   specific device" report before assuming it's a real rendering issue.
+- **This project's dev shell may have an older system Node than the
+  toolchain needs.** Vite 8 (and therefore `npm run dev`/`build`/`test`)
+  requires Node `^20.19.0 || >=22.12.0`; a shell with only Node 18.19.1
+  fails two different ways: `vite build`/`vitest` themselves throw
+  (`node:util` doesn't export `styleText` until Node 20), and — separately
+  — `npm install` run under Node 18's bundled npm (9.x) can silently skip
+  installing a platform-specific optional native binding (e.g.
+  `@rolldown/binding-linux-x64-gnu`), a known npm bug
+  (npm/cli#4828), leaving `node_modules` broken even for a later
+  newer-Node run until it's reinstalled. Fix used here: no system-level
+  Node upgrade, no sudo — just download a Node 20+ linux-x64 tarball
+  from nodejs.org to a scratch/temp location and prefix `PATH` with its
+  `bin/` dir for `npm install` (fixes both problems at once, since it also
+  swaps in a newer bundled npm) and for `dev`/`build`/`test` afterward.
+  `node_modules` itself, once (re)installed this way, is fine to keep using
+  from the project directory — only the *install* step needs the newer
+  Node/npm, not necessarily every subsequent command, though `build`/`test`
+  still need Node 20+ at runtime too since that's a hard `vite`/`vitest`
+  requirement, not just an install-time one.
 - **Service workers update lazily, not on next deploy.** Shipping a new
   `sw.js` doesn't mean a device picks it up the next time the app opens —
   the *old* SW instance is still active and controlling the page. The
