@@ -960,6 +960,36 @@ precipitation events the same?"
     station tests given coordinates. 51/51 passing; lint and build pass.
   - **Not verified live in a browser** (the pill wording change is JSX
     only).
+- **Browser verification (first real one this rebuild):** Claude in
+  Chrome wasn't available, so a standalone headless Chrome (downloaded to
+  scratch space, driven over the DevTools protocol, `--no-sandbox` since
+  this host's AppArmor blocks Chrome's sandbox; the snap Chromium won't
+  start from a non-snap shell) was run against a `vite preview` of the
+  production build. Confirmed working: page load + service worker
+  registration; ZIP lookup (Seattle → SOUPCON 3, rain overlay, 4
+  commentary lines, alerts count); `soupcon_last_*` saved only on success
+  and auto-resume on reload; invalid ZIP → friendly error without
+  overwriting the saved ZIP; geolocation lookup (Boston → SOUPCON 1, 140
+  rain streaks, 3 real alerts rendered); recipe modal (focus moves in,
+  scroll lock, Escape closes and returns focus to the menu button); Share
+  (clipboard text matches on-screen box exactly, toast shown, Facebook tab
+  opened); simulated snow via response rewriting (SOUPCON 1 → "Snow!
+  Check FRTCON!" + snowflakes; SOUPCON 2 → "Snow soon, check your
+  FRTCON!"); 390px phone width with no horizontal overflow. Only console
+  error: the expected logged 404 for the invalid ZIP. **Still not
+  verified:** the actual PWA install flow on a real device, and print
+  preview.
+  - **Recipe modal serif font (pre-existing from FRTCON) — ✅ FIXED:** the
+    modal renders outside `.app-page` (for print isolation), so it never
+    inherited the app's Arial and fell back to the browser's default
+    serif. `.modal-card` now sets the same `font-family` as `.app-page`
+    (no effect on IOSInstallHelp, which already inherited it; `h2` titles
+    keep their own system-ui rule). Verified in headless Chrome: computed
+    font is Arial on screen and under print media emulation; screenshot
+    checked.
+  - **Deliberately left as-is (per owner):** NWS alert descriptions keep
+    NWS's own hard line breaks, so they wrap at about half the card width
+    on desktop.
 - **Deliberately left as-is (per owner, "leave that alone for now"):** an
   observation with a positive `precipitationLastHour` but no
   precipitation wording in `textDescription` still defaults to `"rain"`
