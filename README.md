@@ -49,16 +49,28 @@ level is decided by checking in that order (see `classifySoupcon` in
 
 Classification works from NWS forecast text (`shortForecast` on hourly and
 extended-forecast periods) and a nearby station's current-conditions
-`textDescription`/precipitation reading, matched against keyword lists (rain
-words for levels 1-3, cloudy vs. clear words for the 4-vs-5 split). Unlike
-NWS's alert `event` field (a fixed, published list of canonical strings),
-`shortForecast` is genuinely closer to free text, so this is a real judgment
-call rather than a canonical-code lookup — the keyword lists were checked
-against live NWS output across several cities before being trusted, but an
-unusual phrasing could still be missed. "Currently raining" prefers a real
-station observation when one is fresh enough (within 90 minutes, tried
-across up to 5 nearby stations); if none qualifies, it falls back to the
-current hourly forecast period instead.
+`textDescription`/precipitation reading, matched against keyword lists
+(precipitation words for levels 1-3, cloudy vs. clear words for the 4-vs-5
+split). Unlike NWS's alert `event` field (a fixed, published list of
+canonical strings), `shortForecast` is genuinely closer to free text, so
+this is a real judgment call rather than a canonical-code lookup — the
+keyword lists were checked against live NWS output across several cities
+before being trusted, but an unusual phrasing could still be missed.
+"Currently raining" prefers a real station observation when one is fresh
+enough (within 90 minutes, tried across up to 5 nearby stations); if none
+qualifies, it falls back to the current hourly forecast period instead.
+
+Levels 1-3 don't distinguish rain from snow for the *level* itself (both
+mean "precipitation is happening or coming"), but the on-screen wording and
+the falling-precipitation animation do: rain gets rain streaks and
+rain-worded text ("It's raining right now"), snow gets falling snowflakes
+and snow-worded text ("It's snowing right now"). "Freezing Rain" is treated
+as rain (it falls and looks like rain, just freezes on contact); "Snow
+Showers" and other mixed phrasing default to snow, the more specific and
+disruptive condition. The rotating commentary lines in the condition box
+are not type-specific — they stay rain-flavored (umbrellas, puddles, etc.)
+regardless of whether it's actually raining or snowing, a known, accepted
+gap rather than an oversight.
 
 ## Tech stack
 
@@ -90,6 +102,7 @@ src/
                                 restore, body scroll lock, Escape-to-close
   components/
     RainOverlay.jsx
+    SnowOverlay.jsx
     SoupconBadge.jsx
     SoupconMessage.jsx         — the condition status box
     AlertCard.jsx
@@ -190,9 +203,13 @@ be the right place to add proper NWS attribution.
 - On iOS, there is no way to trigger installation programmatically at
   all — the in-app menu instead shows manual "Add to Home Screen" steps.
 - Classification depends on NWS's `shortForecast` phrasing matching one of a
-  known set of rain/cloudy/clear keywords (see "The SOUPCON scale" above) —
-  checked against live data from several cities, but not exhaustive, so an
-  unusual forecast phrasing could in principle be missed.
+  known set of precipitation/cloudy/clear keywords (see "The SOUPCON scale"
+  above) — checked against live data from several cities, but not
+  exhaustive, so an unusual forecast phrasing could in principle be missed.
+- The rotating commentary lines in the condition box stay rain-flavored
+  even during a snow event — only the short title/reason text and the
+  falling-precipitation animation are type-aware, by design (see "The
+  SOUPCON scale" above).
 
 ## Ideas for later (not yet built)
 

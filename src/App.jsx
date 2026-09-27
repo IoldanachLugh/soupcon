@@ -15,6 +15,7 @@ import { safeGetItem, safeSetItem } from "./lib/cache";
 import { classifySoupcon, pickRandomItems } from "./lib/soupcon";
 import { soupMessages } from "./data/soupMessages";
 import { RainOverlay } from "./components/RainOverlay";
+import { SnowOverlay } from "./components/SnowOverlay";
 import { SoupconBadge } from "./components/SoupconBadge";
 import { SoupconMessage } from "./components/SoupconMessage";
 import { AlertCard } from "./components/AlertCard";
@@ -189,11 +190,13 @@ export default function App() {
   }, [soupcon?.level]);
 
   // Unlike FRTCON's snow (a year-round mascot effect regardless of level),
-  // rain falling on screen when the score says "no rain expected" (levels
-  // 4/5) would actively contradict what the app just told the user -- so
-  // those two levels show none, rather than reusing FRTCON's old "always
-  // show a little something, even at the calmest level" minimum of 8.
-  const rainCount = soupcon
+  // precipitation falling on screen when the score says "no rain expected"
+  // (levels 4/5) would actively contradict what the app just told the
+  // user -- so those two levels show none, rather than reusing FRTCON's
+  // old "always show a little something, even at the calmest level"
+  // minimum of 8. Which *component* renders (rain streaks vs. snowflakes)
+  // is a separate decision from how many -- see precipType below.
+  const precipCount = soupcon
     ? {
         1: 140,
         2: 90,
@@ -202,6 +205,12 @@ export default function App() {
         5: 0,
       }[soupcon.level] ?? 0
     : 0;
+
+  // classifySoupcon only reports a type for levels 1-3 (null for 4/5, where
+  // there's nothing falling to animate either way) -- defaults to rain so
+  // an unexpected null with a nonzero count still renders *something*
+  // sensible rather than nothing.
+  const PrecipOverlay = soupcon?.precipType === "snow" ? SnowOverlay : RainOverlay;
 
   // Resolves to true if it actually landed a result, false otherwise
   // (failed, or superseded by a newer lookup before it finished) -- callers
@@ -584,7 +593,7 @@ export default function App() {
   return (
     <>
     <div className="soupcon-app-root app-page">
-      <RainOverlay count={rainCount} />
+      <PrecipOverlay count={precipCount} />
 
       <div className="app-wrap">
         <div className="app-header">

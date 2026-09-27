@@ -126,12 +126,27 @@ existing origin server rather than standing up anything new:
     the cloudy-vs-clear split (levels 4/5) once rain is ruled out for 48h.
 
   Because `shortForecast`/`textDescription` are genuinely closer to free
-  text than an alert's `event` field, the rain/cloudy/clear keyword lists
-  in `soupcon.js` were checked against live `api.weather.gov` output
-  (several rain-prone cities, 48h of hourly + several extended periods)
-  before being trusted, not just assumed — see `SOUP_PLAN.md` item 2's
-  "Done" note for exactly what was checked. Still not a guaranteed-complete
-  set, the same caveat FRTCON's own `event`-matching carried.
+  text than an alert's `event` field, the precipitation/cloudy/clear
+  keyword lists in `soupcon.js` were checked against live `api.weather.gov`
+  output (several rain-prone cities, 48h of hourly + several extended
+  periods) before being trusted, not just assumed — see `SOUP_PLAN.md`
+  item 2's "Done" note for exactly what was checked. Still not a
+  guaranteed-complete set, the same caveat FRTCON's own `event`-matching
+  carried.
+- **Rain vs. snow.** Levels 1-3 don't distinguish rain from snow for the
+  *level* itself — a `SNOW_KEYWORDS` list (snow, sleet, blizzard, flurries,
+  wintry mix) is checked *before* `RAIN_KEYWORDS`, so a mixed/ambiguous
+  phrase like "Snow Showers" reads as snow rather than being swallowed by
+  the "showers" rain match. `classifySoupcon`'s result carries a
+  `precipType` (`"rain"`/`"snow"`/`null`) that drives both the short
+  title/reason wording ("It's raining" vs. "It's snowing") and which
+  overlay component renders (`RainOverlay` vs. `SnowOverlay` in
+  `App.jsx`) — but *not* the rotating commentary lines in the condition
+  box (`soupMessages.js`), which stay rain-flavored regardless; a full
+  parallel snow-flavored commentary set was considered and explicitly
+  declined as out of scope when this was built. "Freezing Rain" is
+  deliberately classified as rain, not snow (falls and reads visually as
+  rain, freezes only on contact).
 - **Nearest-station staleness:** a station listed as "the" observation
   station for a point isn't guaranteed to have reported recently.
   `getCurrentConditions` (`weatherApi.js`) tries up to 5 of the nearest
@@ -256,6 +271,20 @@ at soupcon.org:
 
 ## Known gotchas (things that already bit us once)
 
+- **A rain-only keyword list silently misclassifies snow as "clear and
+  sunny," not just "unrecognized."** Before `SNOW_KEYWORDS` existed, a
+  plain `"Snow"` forecast/observation with no `probabilityOfPrecipitation`
+  reported (which happens — NWS doesn't always populate that field, and
+  observation objects don't carry it at all) matched none of
+  `RAIN_KEYWORDS`, none of `CLOUDY_KEYWORDS`, fell through every check, and
+  landed on the optimistic default: SOUPCON5, "Clear and sunny." Confirmed
+  live via direct testing (not just reasoned about) while it was actively
+  snowing in the test data. The lesson: a keyword-based classifier's
+  "nothing matched" fallback needs to be checked against every input
+  family it might plausibly see, not just the one the app is nominally
+  "about" — a rain app still needs to know what snow looks like in the
+  same data feed, or its default answer becomes actively wrong instead of
+  just incomplete.
 - **Never set a custom `User-Agent` header on `fetch()` calls to
   api.weather.gov.** Chrome/Firefox silently ignore it, but Safari
   (all iOS browsers, since iOS mandates WebKit) sends it as a real

@@ -748,6 +748,77 @@ used by `App.jsx` until item 5). Pure functions, no React/DOM dependency
   `CONTEXT.md` says can only be meaningfully tested from the promoted root,
   not `/dev/` — worth doing before calling this fully launched.
 
+### 14. Rain-vs-snow classification and animation — ✅ FIXED
+
+Raised as a question after the plan's original 13 items were all done: "what
+happens if it snows instead of rains? should we be marking all
+precipitation events the same?"
+
+- **Bug found while investigating, not just a design gap:** tested directly
+  against the real `classifySoupcon` and confirmed a plain `"Snow"`
+  forecast/observation with no reported `probabilityOfPrecipitation`
+  matched none of the existing rain/cloudy/clear keyword lists and fell
+  through to SOUPCON5 "Clear and sunny" — the worst possible wrong answer,
+  while it was actively snowing in the test data. `"Snow Showers"` was
+  separately (also wrongly) swallowed into the rain bucket via the
+  "showers" substring. Neither was a "we haven't gotten to this yet" gap;
+  both were live, silent misclassifications.
+- **Decision (per user):** word rain and snow separately, and swap in a
+  snow-falling animation when snow is the primary forecast type, rather
+  than either (a) treating all precipitation identically with one generic
+  wording/animation, or (b) leaving snow unhandled/out of scope.
+- **Scope check (asked, since it materially changed the size of this
+  work):** the big rotating commentary box (`soupMessages.js`) has a lot of
+  rain-specific imagery (umbrellas, puddles, storm drains) that reads
+  oddly during snow. Asked whether that also needed a parallel
+  snow-flavored set (~60 new lines) or should stay generic for now.
+  **Answer: stay generic for now** — only `classifySoupcon`'s short
+  title/reason text and the animation are type-aware; the commentary box
+  is an accepted, documented gap, not an oversight.
+- **Done:**
+  - `src/lib/soupcon.js`: added `SNOW_KEYWORDS` (snow, sleet, blizzard,
+    flurries, wintry mix), checked *before* `RAIN_KEYWORDS` so ambiguous
+    phrases ("Snow Showers," "Rain and Snow") resolve to snow rather than
+    being swallowed by a rain substring match. "Freezing Rain" stays rain
+    (visually falls as rain, freezes on contact). Replaced the old
+    boolean `periodIndicatesRain`/`observationIndicatesRain` with
+    type-returning `periodPrecipType`/`observationPrecipType`
+    (`"rain"`/`"snow"`/`null`); the numeric-probability fallback (no type
+    info of its own) defaults to `"rain"` as the far more common case.
+    `classifySoupcon`'s result now carries `precipType` (set for levels
+    1-3, `null` for 4/5) alongside type-specific `title`/`reason` text via
+    a small `PRECIP_WORDING` lookup table — the numeric level and its
+    ordering/priority logic are unchanged, only the type-detection and
+    wording layer is new.
+  - `src/lib/soupcon.test.js`: renamed tests to match the new function
+    names, added snow-specific coverage for all three levels, the
+    ambiguous-phrase priority rule, the "Freezing Rain stays rain" rule,
+    and a dedicated regression test reproducing the exact bug found above
+    (bare "Snow," no probability, no longer falls through to level 5).
+    30/30 passing (up from 22).
+  - **Snow animation:** new `src/components/SnowOverlay.jsx` (a
+    reintroduced version of FRTCON's original falling-snowflake effect —
+    ❄ glyphs with a horizontal-drift `@keyframes snowDrift`), alongside the
+    existing `RainOverlay.jsx` (straight-falling rain streaks, unchanged).
+    `App.jsx` picks whichever component renders based on
+    `soupcon?.precipType === "snow"`, defaulting to rain otherwise (levels
+    4/5 render zero of either way, per the existing density mapping,
+    unchanged from before). The shared positional container class was
+    generalized from `.rain-overlay` to `.precip-overlay` (pure layout,
+    no type-specific styling) so both components reuse one CSS rule.
+  - **Docs:** `README.md` (scale explanation now covers the rain/snow
+    split and the "commentary stays generic" caveat, project structure
+    lists `SnowOverlay.jsx`, a new limitations bullet), `CONTEXT.md` (new
+    architecture bullet on the rain-vs-snow design, and a new "Known
+    gotchas" entry documenting the silent-misclassification bug as a
+    general lesson about keyword-classifier fallback behavior, not just a
+    changelog note).
+  - `npm run lint`, `npm run test` (30/30), and `npm run build` all pass.
+  - **Not verified live in a browser:** same recurring gap as most of this
+    rebuild — the snow animation itself (does it read as snow, is the
+    drift/density right) has been reviewed as code only, not seen
+    rendered.
+
 ---
 
 ## Suggested order

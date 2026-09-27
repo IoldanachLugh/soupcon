@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { classifySoupcon, periodIndicatesRain, observationIndicatesRain, pickRandomItems } from "./soupcon";
+import { classifySoupcon, periodPrecipType, observationPrecipType, pickRandomItems } from "./soupcon";
 
 function hourlyPeriod(shortForecast, probability = null) {
   return {
@@ -12,61 +12,97 @@ function clearHours(count) {
   return Array.from({ length: count }, () => hourlyPeriod("Sunny", 0));
 }
 
-describe("periodIndicatesRain", () => {
+describe("periodPrecipType", () => {
   it("matches rain-family keywords in shortForecast", () => {
-    expect(periodIndicatesRain(hourlyPeriod("Rain"))).toBe(true);
-    expect(periodIndicatesRain(hourlyPeriod("Chance Showers"))).toBe(true);
-    expect(periodIndicatesRain(hourlyPeriod("Slight Chance Thunderstorms"))).toBe(true);
+    expect(periodPrecipType(hourlyPeriod("Rain"))).toBe("rain");
+    expect(periodPrecipType(hourlyPeriod("Chance Showers"))).toBe("rain");
+    expect(periodPrecipType(hourlyPeriod("Slight Chance Thunderstorms"))).toBe("rain");
   });
 
-  it("matches on a high probability of precipitation even without rain wording", () => {
-    expect(periodIndicatesRain(hourlyPeriod("Cloudy", 60))).toBe(true);
+  it("matches snow-family keywords in shortForecast", () => {
+    expect(periodPrecipType(hourlyPeriod("Snow"))).toBe("snow");
+    expect(periodPrecipType(hourlyPeriod("Chance Flurries"))).toBe("snow");
+    expect(periodPrecipType(hourlyPeriod("Sleet"))).toBe("snow");
+    expect(periodPrecipType(hourlyPeriod("Blizzard"))).toBe("snow");
+    expect(periodPrecipType(hourlyPeriod("Wintry Mix"))).toBe("snow");
   });
 
-  it("does not match a low probability with no rain wording", () => {
-    expect(periodIndicatesRain(hourlyPeriod("Partly Cloudy", 10))).toBe(false);
+  it("prefers snow over rain when a phrase matches both (e.g. 'Snow Showers')", () => {
+    expect(periodPrecipType(hourlyPeriod("Snow Showers"))).toBe("snow");
+    expect(periodPrecipType(hourlyPeriod("Rain and Snow"))).toBe("snow");
+  });
+
+  it("treats 'Freezing Rain' as rain, not snow", () => {
+    expect(periodPrecipType(hourlyPeriod("Freezing Rain"))).toBe("rain");
+  });
+
+  it("matches on a high probability of precipitation even without type wording, defaulting to rain", () => {
+    expect(periodPrecipType(hourlyPeriod("Cloudy", 60))).toBe("rain");
+  });
+
+  it("does not match a low probability with no precipitation wording", () => {
+    expect(periodPrecipType(hourlyPeriod("Partly Cloudy", 10))).toBe(null);
   });
 
   it("does not match clear/sunny wording", () => {
-    expect(periodIndicatesRain(hourlyPeriod("Sunny", 0))).toBe(false);
+    expect(periodPrecipType(hourlyPeriod("Sunny", 0))).toBe(null);
   });
 
   it("handles a missing period", () => {
-    expect(periodIndicatesRain(null)).toBe(false);
-    expect(periodIndicatesRain(undefined)).toBe(false);
+    expect(periodPrecipType(null)).toBe(null);
+    expect(periodPrecipType(undefined)).toBe(null);
   });
 });
 
-describe("observationIndicatesRain", () => {
+describe("observationPrecipType", () => {
   it("matches rain wording in textDescription", () => {
-    expect(observationIndicatesRain({ textDescription: "Light Rain" })).toBe(true);
+    expect(observationPrecipType({ textDescription: "Light Rain" })).toBe("rain");
   });
 
-  it("matches a positive precipitationLastHour reading with neutral wording", () => {
+  it("matches snow wording in textDescription", () => {
+    expect(observationPrecipType({ textDescription: "Snow" })).toBe("snow");
+    expect(observationPrecipType({ textDescription: "Blowing Snow" })).toBe("snow");
+  });
+
+  it("matches a positive precipitationLastHour reading with neutral wording, defaulting to rain", () => {
     expect(
-      observationIndicatesRain({ textDescription: "Cloudy", precipitationLastHour: { value: 1.2 } })
-    ).toBe(true);
+      observationPrecipType({ textDescription: "Cloudy", precipitationLastHour: { value: 1.2 } })
+    ).toBe("rain");
   });
 
   it("does not match dry conditions", () => {
-    expect(observationIndicatesRain({ textDescription: "Clear", precipitationLastHour: { value: 0 } })).toBe(
-      false
+    expect(observationPrecipType({ textDescription: "Clear", precipitationLastHour: { value: 0 } })).toBe(
+      null
     );
   });
 
   it("handles a missing observation", () => {
-    expect(observationIndicatesRain(null)).toBe(false);
+    expect(observationPrecipType(null)).toBe(null);
   });
 });
 
 describe("classifySoupcon", () => {
-  it("returns level 1 when the observation shows rain", () => {
+  it("returns level 1 with precipType rain when the observation shows rain", () => {
     const result = classifySoupcon({
       observation: { textDescription: "Rain" },
       hourlyPeriods: clearHours(48),
       extendedPeriods: [{ shortForecast: "Sunny" }],
     });
     expect(result.level).toBe(1);
+    expect(result.precipType).toBe("rain");
+    expect(result.title).toBe("It's raining right now");
+  });
+
+  it("returns level 1 with precipType snow when the observation shows snow", () => {
+    const result = classifySoupcon({
+      observation: { textDescription: "Snow" },
+      hourlyPeriods: clearHours(48),
+      extendedPeriods: [{ shortForecast: "Sunny" }],
+    });
+    expect(result.level).toBe(1);
+    expect(result.precipType).toBe("snow");
+    expect(result.title).toBe("It's snowing right now");
+    expect(result.reason).toBe("Snow is currently falling at this location.");
   });
 
   it("falls back to the current hourly period for level 1 when there is no observation", () => {
@@ -76,6 +112,22 @@ describe("classifySoupcon", () => {
       extendedPeriods: [{ shortForecast: "Sunny" }],
     });
     expect(result.level).toBe(1);
+    expect(result.precipType).toBe("rain");
+  });
+
+  it("does not silently fall through to level 5 for a plain 'Snow' forecast with no reported probability", () => {
+    // Regression case: before precip-type detection covered snow keywords,
+    // a bare "Snow" period (no "shower"/"rain" substring, no reported
+    // probabilityOfPrecipitation) matched nothing and fell all the way
+    // through to "clear and sunny" -- the worst possible wrong answer
+    // while it was actually snowing.
+    const result = classifySoupcon({
+      observation: { textDescription: "Snow", precipitationLastHour: { value: null } },
+      hourlyPeriods: Array.from({ length: 48 }, () => hourlyPeriod("Snow", null)),
+      extendedPeriods: [{ shortForecast: "Snow" }],
+    });
+    expect(result.level).toBe(1);
+    expect(result.precipType).toBe("snow");
   });
 
   it("returns level 2 when rain is expected within 12 hours but not right now", () => {
@@ -86,6 +138,20 @@ describe("classifySoupcon", () => {
       extendedPeriods: [{ shortForecast: "Sunny" }],
     });
     expect(result.level).toBe(2);
+    expect(result.precipType).toBe("rain");
+    expect(result.title).toBe("Rain is on its way");
+  });
+
+  it("returns level 2 with precipType snow when snow is expected within 12 hours", () => {
+    const hourlyPeriods = clearHours(3).concat([hourlyPeriod("Snow")], clearHours(44));
+    const result = classifySoupcon({
+      observation: { textDescription: "Cloudy" },
+      hourlyPeriods,
+      extendedPeriods: [{ shortForecast: "Sunny" }],
+    });
+    expect(result.level).toBe(2);
+    expect(result.precipType).toBe("snow");
+    expect(result.title).toBe("Snow is on its way");
   });
 
   it("returns level 3 when rain is expected in hours 12-47 but not the first 12", () => {
@@ -96,6 +162,19 @@ describe("classifySoupcon", () => {
       extendedPeriods: [{ shortForecast: "Sunny" }],
     });
     expect(result.level).toBe(3);
+    expect(result.precipType).toBe("rain");
+  });
+
+  it("returns level 3 with precipType snow when snow is expected in hours 12-47", () => {
+    const hourlyPeriods = clearHours(20).concat([hourlyPeriod("Sleet")], clearHours(27));
+    const result = classifySoupcon({
+      observation: { textDescription: "Cloudy" },
+      hourlyPeriods,
+      extendedPeriods: [{ shortForecast: "Sunny" }],
+    });
+    expect(result.level).toBe(3);
+    expect(result.precipType).toBe("snow");
+    expect(result.title).toBe("Snow later in the outlook");
   });
 
   it("returns level 4 when no rain is expected in 48h but the near-term outlook is cloudy", () => {
@@ -105,6 +184,7 @@ describe("classifySoupcon", () => {
       extendedPeriods: [{ shortForecast: "Mostly Cloudy" }, { shortForecast: "Sunny" }],
     });
     expect(result.level).toBe(4);
+    expect(result.precipType).toBe(null);
   });
 
   it("returns level 5 when the outlook is clear with no rain expected", () => {
@@ -114,6 +194,7 @@ describe("classifySoupcon", () => {
       extendedPeriods: [{ shortForecast: "Sunny" }, { shortForecast: "Mostly Clear" }],
     });
     expect(result.level).toBe(5);
+    expect(result.precipType).toBe(null);
   });
 
   it("defaults to level 5 when there is no data at all", () => {
@@ -180,13 +261,11 @@ describe("day/night forecast wording", () => {
   // multi-condition phrasing, as a permanent regression test rather than
   // a one-off manual check.
   it("matches real NWS rain phrasing, including combined 'X then Y' forecasts", () => {
-    expect(periodIndicatesRain(hourlyPeriod("Slight Chance Rain Showers"))).toBe(true);
-    expect(periodIndicatesRain(hourlyPeriod("Chance Showers And Thunderstorms"))).toBe(true);
+    expect(periodPrecipType(hourlyPeriod("Slight Chance Rain Showers"))).toBe("rain");
+    expect(periodPrecipType(hourlyPeriod("Chance Showers And Thunderstorms"))).toBe("rain");
     expect(
-      periodIndicatesRain(
-        hourlyPeriod("Showers And Thunderstorms Likely then Chance Showers And Thunderstorms")
-      )
-    ).toBe(true);
+      periodPrecipType(hourlyPeriod("Showers And Thunderstorms Likely then Chance Showers And Thunderstorms"))
+    ).toBe("rain");
   });
 });
 

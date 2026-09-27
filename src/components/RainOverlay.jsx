@@ -15,7 +15,7 @@ export const RainOverlay = React.memo(function RainOverlay({ count }) {
   }, [count]);
 
   return (
-    <div className="rain-overlay" aria-hidden="true">
+    <div className="precip-overlay" aria-hidden="true">
       {drops.map((drop) => (
         <span
           key={drop.id}

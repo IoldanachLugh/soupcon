@@ -73,6 +73,18 @@ div[role="dialog"] {
   }
 }
 
+@keyframes snowDrift {
+  0% {
+    transform: translateY(-10px) translateX(0px);
+  }
+  50% {
+    transform: translateY(50vh) translateX(18px);
+  }
+  100% {
+    transform: translateY(100vh) translateX(-18px);
+  }
+}
+
 @media print {
   .soupcon-app-root {
     display: none !important;
@@ -128,7 +140,9 @@ div[role="dialog"] {
   text-align: center;
 }
 
-.rain-overlay {
+/* Shared by RainOverlay and SnowOverlay -- purely positional, no
+   type-specific styling, so one class covers both. */
+.precip-overlay {
   position: fixed;
   inset: 0;
   width: 100%;
