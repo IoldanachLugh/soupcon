@@ -14,14 +14,18 @@
 // Rain-family conditions. "Freezing Rain" deliberately lands here (not in
 // SNOW_KEYWORDS below) since it falls and reads visually as rain, freezing
 // only on contact -- it's a winter hazard, but not a snow one.
-const RAIN_KEYWORDS = ["rain", "showers", "shower", "thunderstorm", "drizzle", "sprinkles"];
+// "hail" covers station readings like "Hail"/"Small Hail" (and forecast
+// "Thunderstorms And Small Hail"), which otherwise matched nothing.
+const RAIN_KEYWORDS = ["rain", "showers", "shower", "thunderstorm", "drizzle", "sprinkles", "hail"];
 
 // Snow-family conditions. Checked *before* RAIN_KEYWORDS wherever both are
 // tested (see textPrecipType) so a mixed/ambiguous phrase like "Snow
 // Showers" or "Rain and Snow" -- which would also match "showers"/"rain" --
 // reads as snow, the more specific and more disruptive condition, rather
 // than being silently folded into "rain."
-const SNOW_KEYWORDS = ["snow", "sleet", "blizzard", "flurries", "wintry mix"];
+// "ice pellets" is how station observations word sleet (forecasts say
+// "Sleet"); without it, an observed sleet event matched neither list.
+const SNOW_KEYWORDS = ["snow", "sleet", "ice pellets", "blizzard", "flurries", "wintry mix"];
 
 // "Cloudy" and "clear" are treated as mutually exclusive buckets: NWS's
 // shortForecast phrasing ("Partly Cloudy", "Mostly Sunny", "Overcast",

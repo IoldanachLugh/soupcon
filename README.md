@@ -61,7 +61,8 @@ this is a real judgment call rather than a canonical-code lookup — the
 keyword lists were checked against live NWS output across several cities
 before being trusted, but an unusual phrasing could still be missed.
 "Currently raining" prefers a real station observation when one is fresh
-enough (within 90 minutes, tried across up to 5 nearby stations) and
+enough (within 90 minutes, checked across up to 5 nearby stations at once,
+nearest usable one wins) and
 actually reports weather (many stations post timely observations with a
 blank description); if none qualifies, it falls back to the current hourly
 forecast period instead — but only counts it as "raining right now" at a
@@ -93,7 +94,7 @@ gap rather than an oversight.
 
 - React + Vite
 - Plain CSS (no CSS-in-JS, no Tailwind) — see `src/styles.css`
-- `vitest` for the classification logic's test suite
+- `vitest` for the classification logic's and API layer's test suites
 - No backend — this is a fully static, client-side app. All data comes
   directly from public APIs, called from the browser.
 - No build-time API keys or secrets of any kind are required.
@@ -111,6 +112,9 @@ src/
                                 pickRandomItems) — no React/DOM dependency,
                                 covered by soupcon.test.js
     soupcon.test.js            — vitest suite for the above
+    weatherApi.test.js         — vitest suite for the API layer's station
+                                selection, request de-dup, and
+                                empty-forecast handling (fetch stubbed)
   data/
     soupMessages.js            — the SOUPCON 1–5 headline/title/commentary content
     recipe.js                 — the current soup recipe

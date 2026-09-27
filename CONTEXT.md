@@ -110,7 +110,8 @@ existing origin server rather than standing up anything new:
   dynamic values (e.g. each raindrop's randomized position/timing in
   `RainOverlay.jsx`).
 - `lib/soupcon.js` (`classifySoupcon`) is pure — no React/DOM dependency —
-  and does have a test suite (`soupcon.test.js`, `vitest`), unlike FRTCON's
+  and does have a test suite (`soupcon.test.js`, `vitest`; the API layer
+  has `weatherApi.test.js` too, with `fetch` stubbed), unlike FRTCON's
   equivalent module, which never got one.
 - **Classification data source (the single biggest architectural
   difference from FRTCON):** FRTCON classified a list of NWS *alerts* by
@@ -134,8 +135,8 @@ existing origin server rather than standing up anything new:
   guaranteed-complete set, the same caveat FRTCON's own `event`-matching
   carried.
 - **Rain vs. snow.** Levels 1-3 don't distinguish rain from snow for the
-  *level* itself — a `SNOW_KEYWORDS` list (snow, sleet, blizzard, flurries,
-  wintry mix) is checked *before* `RAIN_KEYWORDS`, so a mixed/ambiguous
+  *level* itself — a `SNOW_KEYWORDS` list (snow, sleet, ice pellets —
+  stations' word for sleet — blizzard, flurries, wintry mix) is checked *before* `RAIN_KEYWORDS`, so a mixed/ambiguous
   phrase like "Snow Showers" reads as snow rather than being swallowed by
   the "showers" rain match. `classifySoupcon`'s result carries a
   `precipType` (`"rain"`/`"snow"`/`null`) that drives both the short
@@ -149,8 +150,10 @@ existing origin server rather than standing up anything new:
   rain, freezes only on contact).
 - **Nearest-station staleness:** a station listed as "the" observation
   station for a point isn't guaranteed to have reported recently.
-  `getCurrentConditions` (`weatherApi.js`) tries up to 5 of the nearest
-  stations in order and uses the first one with a reading within 90
+  `getCurrentConditions` (`weatherApi.js`) fetches up to 5 of the nearest
+  stations *in parallel* (sequentially, with a 10s timeout each, a slow
+  NWS could hold the whole lookup for ~a minute) and uses the nearest one
+  with a reading within 90
   minutes *that actually carries weather* (a non-blank `textDescription`
   or a numeric `precipitationLastHour` — fresh-but-blank observations are
   common, even from major airports, and would otherwise read as "not
@@ -180,10 +183,15 @@ existing origin server rather than standing up anything new:
   response (TTL-based, like everything else in `cache.js`) and
   deduplicates concurrent in-flight requests for the same location via an
   in-memory `Map` of pending promises — otherwise a cold-cache lookup
-  would fire 4 near-simultaneous requests for the exact same URL. This
-  relies on this app's own call pattern always passing the same
-  `AbortSignal` to concurrent calls for one location; it isn't a
-  general-purpose per-caller-cancellation mechanism.
+  would fire 4 near-simultaneous requests for the exact same URL. The
+  shared request runs on its first caller's `AbortSignal`, so an entry
+  whose signal is already aborted is never joined — a new lookup for the
+  same location starts its own request instead of inheriting the
+  cancellation. It's still not a general per-caller-cancellation
+  mechanism (joiners can't cancel the shared request themselves).
+- **An empty hourly forecast is an error, not "clear."**
+  `getHourlyForecast` throws (and doesn't cache) when NWS returns zero
+  periods, since `classifySoupcon` would otherwise fall through to level 5.
 - **Location label:** uses NWS's `relativeLocation` (city/state, e.g.
   "Seattle, WA") from the `/points` response, not a forecast-zone name —
   reads better for a rain app than FRTCON's old zone-name label did.

@@ -899,13 +899,33 @@ precipitation events the same?"
     classifier against live NWS data for 7 cities; all results were
     sensible (e.g. Chicago's Mostly Sunny/Partly Cloudy outlook is now
     level 5, previously 4).
-- **Reported, not fixed (lower severity, no decision yet):** sequential
-  station lookups (each with a 10s timeout) can stall "Looking up..."
-  for up to ~60s when NWS is slow; `getGridpointInfo`'s in-flight de-dup
-  can hand a new lookup an already-aborted request (hard to reach in
-  production since lookup buttons disable while loading); an empty
-  hourly response still defaults to level 5; "Ice Pellets"/"Hail"
-  observations aren't recognized as precipitation.
+- **Done (second follow-up, per owner — "fix all four"):** the
+  lower-severity findings from the same review.
+  - **Sequential station lookups.** `findFreshObservation` walked up to 5
+    stations one at a time, each with its own 10s timeout, inside the
+    lookup's `Promise.all` — a slow NWS could hold "Looking up..." for
+    ~a minute. Now fetched in parallel (worst case one timeout); the
+    nearest *usable* station still wins, picked by station order rather
+    than arrival order. Live timings across 7 cities: 145–1477 ms per
+    full lookup.
+  - **Aborted in-flight `/points` request reused.** `getGridpointInfo`'s
+    de-dup map now stores each request's signal and never joins one
+    that's already aborted (a new lookup starts its own); cleanup only
+    deletes its own entry so it can't evict a newer replacement.
+  - **Empty hourly forecast → "Clear and sunny."** `getHourlyForecast`
+    now throws a user-facing "didn't return a forecast" error (not
+    cached) instead of returning `[]`. Background refreshes that hit it
+    keep the last good data, like any other refresh failure.
+  - **"Ice Pellets"/"Hail" unrecognized.** Added `ice pellets` to
+    `SNOW_KEYWORDS` (stations' wording for sleet) and `hail` to
+    `RAIN_KEYWORDS`.
+  - New `src/lib/weatherApi.test.js` (5 tests, `fetch` stubbed); the 3
+    covering new behavior were confirmed to **fail against the
+    pre-change `weatherApi.js`** and pass after, the other 2 guard
+    behavior that shouldn't change (de-dup still collapses concurrent
+    live requests; nearest usable station wins). Plus a keyword test in
+    `soupcon.test.js`. 45/45 passing; lint and build pass; live 7-city
+    classifier run unchanged.
 - **Not verified live in a browser** — logic changes only, verified via
   tests and live-API runs of the classifier.
 

@@ -188,9 +188,11 @@ export async function getActiveAlertsByPoint(lat, lon, { signal, skipCache = fal
 // otherwise all race to fetch the exact same /points URL at once --
 // gridpointRequestsInFlight collapses that into a single request, with
 // later callers awaiting the first one's in-flight promise instead of
-// starting their own. (Relies on this app's actual call pattern always
-// passing the same signal to concurrent calls for the same location --
-// not a general-purpose per-caller-cancellation guarantee.)
+// starting their own. The shared request runs on its *first* caller's
+// signal, so an entry whose signal has been aborted is never joined: a new
+// lookup for the same location started right after cancelling the old one
+// would otherwise inherit that cancellation and surface a raw "aborted"
+// error. It starts its own request instead (replacing the dead entry).
 const gridpointRequestsInFlight = new Map();
 
 async function getGridpointInfo(lat, lon, { signal } = {}) {
@@ -201,8 +203,8 @@ async function getGridpointInfo(lat, lon, { signal } = {}) {
   }
 
   const inFlight = gridpointRequestsInFlight.get(cacheKey);
-  if (inFlight) {
-    return inFlight;
+  if (inFlight && !inFlight.signal?.aborted) {
+    return inFlight.promise;
   }
 
   const requestPromise = (async () => {
@@ -235,11 +237,16 @@ async function getGridpointInfo(lat, lon, { signal } = {}) {
     return value;
   })();
 
-  gridpointRequestsInFlight.set(cacheKey, requestPromise);
+  const entry = { promise: requestPromise, signal };
+  gridpointRequestsInFlight.set(cacheKey, entry);
   try {
     return await requestPromise;
   } finally {
-    gridpointRequestsInFlight.delete(cacheKey);
+    // Only remove our own entry -- an aborted one may already have been
+    // replaced by a newer request for the same location (see above).
+    if (gridpointRequestsInFlight.get(cacheKey) === entry) {
+      gridpointRequestsInFlight.delete(cacheKey);
+    }
   }
 }
 
@@ -267,7 +274,17 @@ export async function getHourlyForecast(lat, lon, { signal, skipCache = false } 
     throw message ? new Error(message) : err;
   }
 
+  // The hourly forecast is what levels 1-3 are decided from -- with no
+  // periods at all, classifySoupcon would match nothing and fall through
+  // to level 5, "Clear and sunny" (the same silent-fallthrough trap as
+  // CONTEXT.md's snow gotcha). Treat it as a failed lookup instead, and
+  // don't cache it. A background refresh hitting this just keeps the last
+  // good data, same as any other refresh failure.
   const value = data?.properties?.periods || [];
+  if (value.length === 0) {
+    console.error(`No hourly forecast periods returned for ${gridpoint.forecastHourlyUrl}`);
+    throw new Error("The weather service didn't return a forecast for this location. Try again in a minute.");
+  }
   setCacheItem(cacheKey, value);
   return value;
 }
@@ -316,30 +333,34 @@ function observationHasWeather(props) {
   return Boolean(props.textDescription?.trim()) || typeof props.precipitationLastHour?.value === "number";
 }
 
-async function findFreshObservation(stationUrls, { signal } = {}) {
-  for (const stationUrl of stationUrls.slice(0, MAX_OBSERVATION_STATIONS_TO_TRY)) {
-    let obsData;
-    try {
-      obsData = await fetchJson(`${stationUrl}/observations/latest`, { signal });
-    } catch {
-      // This station has no recent observation at all (common -- not every
-      // listed station reports reliably); try the next one rather than
-      // failing the whole lookup over a single station's gap.
-      continue;
-    }
+function isUsableObservation(props) {
+  const timestamp = props?.timestamp ? new Date(props.timestamp).getTime() : NaN;
+  return (
+    Boolean(props) &&
+    !Number.isNaN(timestamp) &&
+    Date.now() - timestamp <= OBSERVATION_MAX_AGE_MS &&
+    observationHasWeather(props)
+  );
+}
 
-    const props = obsData?.properties;
-    const timestamp = props?.timestamp ? new Date(props.timestamp).getTime() : NaN;
-    if (
-      props &&
-      !Number.isNaN(timestamp) &&
-      Date.now() - timestamp <= OBSERVATION_MAX_AGE_MS &&
-      observationHasWeather(props)
-    ) {
-      return props;
-    }
-  }
-  return null;
+// All candidate stations are fetched in parallel, not one at a time:
+// getCurrentConditions sits inside App.jsx's lookup Promise.all, so a
+// sequential walk (each fetch with its own FETCH_TIMEOUT_MS) could hold the
+// whole lookup on "Looking up..." for ~a minute when NWS is slow. In
+// parallel the worst case is one timeout. Nearest-first preference is
+// kept by picking from the results in station order, not arrival order.
+async function findFreshObservation(stationUrls, { signal } = {}) {
+  const observations = await Promise.all(
+    stationUrls.slice(0, MAX_OBSERVATION_STATIONS_TO_TRY).map((stationUrl) =>
+      fetchJson(`${stationUrl}/observations/latest`, { signal })
+        .then((obsData) => obsData?.properties ?? null)
+        // This station has no recent observation at all (common -- not
+        // every listed station reports reliably); a single station's gap
+        // shouldn't fail the whole lookup.
+        .catch(() => null)
+    )
+  );
+  return observations.find(isUsableObservation) ?? null;
 }
 
 // Returns null (not a throw) when no fresh-enough observation could be

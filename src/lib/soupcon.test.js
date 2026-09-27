@@ -76,6 +76,12 @@ describe("observationPrecipType", () => {
     );
   });
 
+  it("reads station 'Ice Pellets' wording as snow-family and 'Hail' as rain-family", () => {
+    expect(observationPrecipType({ textDescription: "Light Ice Pellets" })).toBe("snow");
+    expect(observationPrecipType({ textDescription: "Hail" })).toBe("rain");
+    expect(observationPrecipType({ textDescription: "Thunderstorm Small Hail" })).toBe("rain");
+  });
+
   it("handles a missing observation", () => {
     expect(observationPrecipType(null)).toBe(null);
   });
