@@ -9,20 +9,20 @@ export function RecipeModal({ open, onClose, returnFocusRef }) {
   if (!open) return null;
 
   return (
-    <div className="frtcon-recipe-overlay modal-overlay" onClick={onClose}>
+    <div className="soupcon-recipe-overlay modal-overlay" onClick={onClose}>
       <div
         ref={cardRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="recipe-modal-title"
-        className="frtcon-recipe-card modal-card"
+        className="soupcon-recipe-card modal-card"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="modal-header-row">
           <h2 id="recipe-modal-title" className="modal-title">
             {RECIPE.title}
           </h2>
-          <div className="frtcon-no-print modal-button-group">
+          <div className="soupcon-no-print modal-button-group">
             <button type="button" onClick={() => window.print()} className="modal-print-button">
               Print
             </button>

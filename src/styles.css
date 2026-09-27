@@ -74,11 +74,11 @@ div[role="dialog"] {
 }
 
 @media print {
-  .frtcon-app-root {
+  .soupcon-app-root {
     display: none !important;
   }
 
-  .frtcon-recipe-overlay {
+  .soupcon-recipe-overlay {
     position: static !important;
     inset: auto !important;
     background: none !important;
@@ -86,7 +86,7 @@ div[role="dialog"] {
     display: block !important;
   }
 
-  .frtcon-recipe-card {
+  .soupcon-recipe-card {
     position: static !important;
     max-width: none !important;
     width: auto !important;
@@ -99,12 +99,12 @@ div[role="dialog"] {
     font-size: 11pt !important;
   }
 
-  .frtcon-recipe-card,
-  .frtcon-recipe-card * {
+  .soupcon-recipe-card,
+  .soupcon-recipe-card * {
     color: #000000 !important;
   }
 
-  .frtcon-no-print {
+  .soupcon-no-print {
     display: none !important;
   }
 }
@@ -333,11 +333,11 @@ div[role="dialog"] {
 }
 
 /* ==========================================================================
-   FRTCON condition status (the "beige/amber" box with the FRTCON headline,
+   SOUPCON condition status (the "beige/amber" box with the SOUPCON headline,
    title, and randomized commentary lines)
    ========================================================================== */
 
-.frtcon-status-row {
+.soupcon-status-row {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -348,9 +348,9 @@ div[role="dialog"] {
    are centered on the same line. .alert-tag's own margins (meant for
    wrapped tag lists elsewhere) are zeroed here since the row's gap handles
    spacing -- its margin-bottom otherwise pushes it ~4px off-center. */
-.frtcon-status-row > .frtcon-badge,
-.frtcon-status-row > .alert-tag,
-.frtcon-status-row > .share-fb-button {
+.soupcon-status-row > .soupcon-badge,
+.soupcon-status-row > .alert-tag,
+.soupcon-status-row > .share-fb-button {
   box-sizing: border-box;
   display: inline-flex;
   align-items: center;
@@ -362,33 +362,33 @@ div[role="dialog"] {
   line-height: 1;
 }
 
-.frtcon-status-row > .frtcon-badge {
+.soupcon-status-row > .soupcon-badge {
   padding-left: 8px;
   padding-right: 8px;
 }
 
-.frtcon-status-row > .alert-tag {
+.soupcon-status-row > .alert-tag {
   padding-left: 6px;
   padding-right: 6px;
 }
 
-.frtcon-status-row > .share-fb-button {
+.soupcon-status-row > .share-fb-button {
   gap: 6px;
   padding-left: 10px;
   padding-right: 10px;
 }
 
-.frtcon-status-row > .share-fb-button {
+.soupcon-status-row > .share-fb-button {
   border-radius: 999px;
 }
 
-.frtcon-updated-at {
+.soupcon-updated-at {
   margin-top: 8px;
   font-size: 13px;
   color: #93a5c4;
 }
 
-.frtcon-title-large {
+.soupcon-title-large {
   margin-top: 16px;
   font-size: 24px;
   font-weight: bold;
@@ -430,7 +430,7 @@ div[role="dialog"] {
   color: #93a5c4;
 }
 
-.frtcon-badge {
+.soupcon-badge {
   display: inline-block;
   padding: 8px 14px;
   border-radius: 999px;
@@ -438,23 +438,23 @@ div[role="dialog"] {
   font-size: 14px;
 }
 
-.frtcon-badge--level-1 {
+.soupcon-badge--level-1 {
   background: #dc2626;
   color: #ffffff;
 }
-.frtcon-badge--level-2 {
+.soupcon-badge--level-2 {
   background: #f97316;
   color: #ffffff;
 }
-.frtcon-badge--level-3 {
+.soupcon-badge--level-3 {
   background: #facc15;
   color: #111827;
 }
-.frtcon-badge--level-4 {
+.soupcon-badge--level-4 {
   background: #38bdf8;
   color: #111827;
 }
-.frtcon-badge--level-5 {
+.soupcon-badge--level-5 {
   background: #22c55e;
   color: #ffffff;
 }
@@ -471,19 +471,9 @@ div[role="dialog"] {
   margin-bottom: 8px;
 }
 
-.frtcon-matching-alerts {
-  margin-top: 16px;
-}
-
-.frtcon-matching-alerts-title {
-  font-weight: bold;
-  margin-bottom: 10px;
-  color: #ffffff;
-}
-
-/* The beige/amber box containing the FRTCON headline, title, and randomized
+/* The beige/amber box containing the SOUPCON headline, title, and randomized
    commentary lines for the current condition level. */
-.frtcon-condition-status {
+.soupcon-condition-status {
   background: #fff7e6;
   border: 1px solid #f59e0b;
   border-radius: 16px;
@@ -492,23 +482,23 @@ div[role="dialog"] {
   margin-top: 18px;
 }
 
-.frtcon-condition-headline {
+.soupcon-condition-headline {
   font-weight: bold;
   font-size: 20px;
   margin-bottom: 8px;
 }
 
-.frtcon-condition-title {
+.soupcon-condition-title {
   font-size: 18px;
   font-weight: bold;
   margin-bottom: 10px;
 }
 
-.frtcon-condition-line {
+.soupcon-condition-line {
   margin-top: 0;
 }
 
-.frtcon-footnote {
+.soupcon-footnote {
   font-size: 13px;
   color: #6b7280;
   margin-bottom: 0;

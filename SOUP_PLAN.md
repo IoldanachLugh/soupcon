@@ -391,13 +391,55 @@ used by `App.jsx` until item 5). Pure functions, no React/DOM dependency
     (density, speed, whether it reads as rain rather than noise) is
     reviewed as code/CSS only, not seen rendered.
 
-### 6. CSS renames — `src/styles.css`
+### 6. CSS renames — `src/styles.css` — ✅ FIXED
 
 - `.frtcon-*` → `.soupcon-*` classes (`.frtcon-badge--level-N`,
   `.frtcon-condition-status`, `.frtcon-status-row`, `.frtcon-updated-at`,
   `.frtcon-matching-alerts*`, `.frtcon-title-large`, etc.).
 - Verify visually in both light/dark and at phone width after, same as
   `PLAN.md` #9's verification approach.
+- **Done:**
+  - Every `.frtcon-*` class/id in `src/` (styles.css and the JSX that
+    references them: `App.jsx`, `SoupconBadge.jsx`, `SoupconMessage.jsx`,
+    `RecipeModal.jsx`) renamed to `.soupcon-*`, including the
+    `frtcon-zip-input` DOM id (label/input pair) alongside the class
+    renames, since it's the same category of internal branding-prefixed
+    identifier even though it's technically an id, not a class.
+  - **`.frtcon-matching-alerts`/`.frtcon-matching-alerts-title` deleted
+    outright, not renamed** — exactly the dead CSS the plan's own example
+    list flagged (`.frtcon-matching-alerts*`), confirmed via grep to have
+    zero remaining JSX consumers since item 3 removed the "Winter alerts
+    driving the score" block. CSS bundle shrank slightly (7.42 kB → 7.33
+    kB) consistent with real dead-rule removal, not just a rename.
+  - Section-header comments in `styles.css` that named "FRTCON" (e.g. "The
+    beige/amber box containing the FRTCON headline...") updated to
+    "SOUPCON" alongside the class renames in the same section.
+  - Repo-wide grep confirms zero remaining `frtcon-` (hyphenated) hits
+    anywhere in `src/`; all `frtcon` hits left are the already-known,
+    already-deferred ones: `frtcon_last_*`/`frtcon_*_lookup_`/etc.
+    (underscore-separated storage keys, item 9) and `frtcon.com` (domain,
+    items 7/8).
+  - **New scope item found while checking, not yet acted on:** `public/sw.js`
+    has its own independent set of `frtcon-`/`frtcon_`-prefixed identifiers
+    — DOM ids `frtcon-reconnect-text`/`frtcon-reconnect-retry` and a
+    `frtcon_reconnect_attempts` sessionStorage key used by the offline
+    "Reconnecting…" fallback page (see `CONTEXT.md`'s SW notes) — plus
+    `src/main.jsx` clears that same sessionStorage key on a successful
+    load. None of this is `src/styles.css` or JSX class names, so it's out
+    of this item's scope, and it wasn't explicitly named in items 7/8/9's
+    file lists either. Flagging here (as with the Share-button URL gap
+    found in item 3) so it isn't missed when those items land — likely
+    belongs with item 9 (storage/id key renames) rather than 7/8 (which
+    are about domain references specifically), but worth double-checking
+    then.
+  - `npm run lint`, `npm run test` (19/19), and `npm run build` all pass.
+  - **Not verified live in a browser** (same recurring gap — Claude in
+    Chrome still isn't connected this session): light/dark mode, phone
+    width, both modals, and the recipe print preview are all unverified
+    visually; a class-name-only rename (no selector structure or property
+    changes) is low-risk, but this is exactly the kind of change
+    `PLAN.md`'s own #9 treated as warranting a real before/after visual
+    pass, not just a successful build.
 
 ### 7. Branding/meta pass
 
@@ -440,13 +482,31 @@ used by `App.jsx` until item 5). Pure functions, no React/DOM dependency
   this plan rather than leaving it looking abandoned. Decide then whether
   `PLAN.md` itself gets archived/retired for this fork.
 
-### 11. Tests — `vitest`
+### 11. Tests — `vitest` — ✅ FIXED
 
 - Add as dev dependency with a `test` script (same ask as old `PLAN.md`
   #11, but done this time as part of the rewrite instead of shelved).
 - Cover `soupcon.js`: each level's representative forecast/observation
   shapes, the 12h-vs-48h boundary, day/night wording variants, and
   `pickRandomItems` (already covered, carries over unchanged).
+- **Done:** `vitest` + the `test` script, and most of this coverage, were
+  already added in item 1 (19 tests: each level, the 12h/48h boundary, the
+  no-observation level-1 fallback, the 4-vs-5 extended-period window
+  boundary, `pickRandomItems`). The one thing item 1 didn't yet have —
+  **day/night wording variants** — added here as a new `describe` block in
+  `src/lib/soupcon.test.js`:
+  - Confirms daytime "Sunny"/"Mostly Sunny" and nighttime "Clear"/"Mostly
+    Clear" both land on level 5, and "Partly Cloudy"/"Mostly Cloudy" both
+    land on level 4 — i.e. the classifier doesn't only recognize daytime
+    phrasing.
+  - Also locks in the exact real `shortForecast` strings pulled from live
+    `api.weather.gov` data during item 2's verification (including NWS's
+    combined "X then Y" multi-condition phrasing,
+    e.g. "Showers And Thunderstorms Likely then Chance Showers And
+    Thunderstorms") as permanent regression tests, rather than leaving
+    that verification as a one-off manual check that could silently
+    regress later.
+  - 22/22 tests passing; `npm run lint` and `npm run build` still pass.
 
 ### 12. Infra — soupcon.org
 

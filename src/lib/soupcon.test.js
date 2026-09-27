@@ -139,6 +139,57 @@ describe("classifySoupcon", () => {
   });
 });
 
+describe("day/night forecast wording", () => {
+  // NWS phrases the same sky condition differently by time of day (e.g.
+  // "Sunny" during the day vs. "Clear"/"Mostly Clear" at night for a
+  // similarly cloudless period) -- these confirm classifySoupcon treats
+  // both as equivalent rather than only recognizing the daytime phrasing.
+  it("treats daytime 'sunny' and nighttime 'clear' phrasing as equivalent for level 5", () => {
+    const daytime = classifySoupcon({
+      observation: null,
+      hourlyPeriods: clearHours(48),
+      extendedPeriods: [{ shortForecast: "Sunny" }, { shortForecast: "Mostly Sunny" }],
+    });
+    const nighttime = classifySoupcon({
+      observation: null,
+      hourlyPeriods: clearHours(48),
+      extendedPeriods: [{ shortForecast: "Mostly Clear" }, { shortForecast: "Clear" }],
+    });
+    expect(daytime.level).toBe(5);
+    expect(nighttime.level).toBe(5);
+  });
+
+  it("treats 'partly cloudy' and 'mostly cloudy' phrasing as equivalent for level 4", () => {
+    const partly = classifySoupcon({
+      observation: null,
+      hourlyPeriods: clearHours(48),
+      extendedPeriods: [{ shortForecast: "Partly Cloudy" }],
+    });
+    const mostly = classifySoupcon({
+      observation: null,
+      hourlyPeriods: clearHours(48),
+      extendedPeriods: [{ shortForecast: "Mostly Cloudy" }],
+    });
+    expect(partly.level).toBe(4);
+    expect(mostly.level).toBe(4);
+  });
+
+  // Locks in real shortForecast strings pulled from live api.weather.gov
+  // data during SOUP_PLAN.md item 2's verification (Miami/New
+  // Orleans/Houston/Orlando/Tampa), including NWS's "X then Y" combined
+  // multi-condition phrasing, as a permanent regression test rather than
+  // a one-off manual check.
+  it("matches real NWS rain phrasing, including combined 'X then Y' forecasts", () => {
+    expect(periodIndicatesRain(hourlyPeriod("Slight Chance Rain Showers"))).toBe(true);
+    expect(periodIndicatesRain(hourlyPeriod("Chance Showers And Thunderstorms"))).toBe(true);
+    expect(
+      periodIndicatesRain(
+        hourlyPeriod("Showers And Thunderstorms Likely then Chance Showers And Thunderstorms")
+      )
+    ).toBe(true);
+  });
+});
+
 describe("pickRandomItems", () => {
   it("returns min(count, length) unique items", () => {
     const items = ["a", "b", "c", "d"];

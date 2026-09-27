@@ -437,7 +437,7 @@ export default function App() {
   function handleShare() {
     if (!soupcon || !soupconMessage || !result?.locationLabel) return;
 
-    // Mirrors exactly what's rendered in the .frtcon-condition-status box
+    // Mirrors exactly what's rendered in the .soupcon-condition-status box
     // (SoupconMessage) -- headline, title, and the same randomized
     // commentary lines currently on screen -- rather than the shorter
     // soupcon.title/soupcon.reason summary shown above it. No URL here --
@@ -588,7 +588,7 @@ export default function App() {
 
   return (
     <>
-    <div className="frtcon-app-root app-page">
+    <div className="soupcon-app-root app-page">
       <RainOverlay count={rainCount} />
 
       <div className="app-wrap">
@@ -668,11 +668,11 @@ export default function App() {
             </button>
 
             <form onSubmit={handleZipLookup} className="button-row">
-              <label htmlFor="frtcon-zip-input" className="visually-hidden-label">
+              <label htmlFor="soupcon-zip-input" className="visually-hidden-label">
                 ZIP code
               </label>
               <input
-                id="frtcon-zip-input"
+                id="soupcon-zip-input"
                 className="zip-input"
                 type="text"
                 inputMode="numeric"
@@ -694,7 +694,7 @@ export default function App() {
         {result && soupcon ? (
           <div className="section-stack">
             <div className="card section-spacing">
-              <div className="frtcon-status-row">
+              <div className="soupcon-status-row">
                 <SoupconBadge level={soupcon.level} />
                 <span className="alert-tag">
                   {result.alerts.length} alert{result.alerts.length === 1 ? "" : "s"}
@@ -743,11 +743,11 @@ export default function App() {
                 lines={soupconMessage.lines}
               />
 
-              <div className="frtcon-title-large">{soupcon.title}</div>
+              <div className="soupcon-title-large">{soupcon.title}</div>
               <p className="body-text">{soupcon.reason}</p>
 
               {result.fetchedAt ? (
-                <div className="frtcon-updated-at">
+                <div className="soupcon-updated-at">
                   Updated{" "}
                   {new Date(result.fetchedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
                 </div>
