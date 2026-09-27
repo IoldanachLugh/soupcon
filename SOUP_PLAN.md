@@ -133,7 +133,7 @@ used by `App.jsx` until item 5). Pure functions, no React/DOM dependency
     detail). No production/deploy environment is assumed to have this
     problem; it's specific to this dev shell as currently set up.
 
-### 2. New API layer — `src/lib/weatherApi.js`
+### 2. New API layer — `src/lib/weatherApi.js` — ✅ FIXED
 
 - `getHourlyForecast(lat, lon, opts)` — `/points` → gridpoint URL →
   `/gridpoints/{office}/{x},{y}/forecast/hourly`.
@@ -150,6 +150,60 @@ used by `App.jsx` until item 5). Pure functions, no React/DOM dependency
   `ALERTS_CACHE_TTL_MS`); hourly forecast can be somewhat longer (NWS
   updates it roughly hourly); extended forecast longer still. New prefixes
   in `cache.js` (see item 9).
+- **Done:** added three new exports to `weatherApi.js` —
+  `getHourlyForecast`, `getExtendedForecast`, `getCurrentConditions` — plus
+  a private, shared `getGridpointInfo(lat, lon)` helper that all three
+  (and only they) use, so a single `/points` call/cache entry serves all
+  three instead of each hitting `/points` separately for the same
+  location.
+  - **Location label decided:** `getGridpointInfo` reads
+    `properties.relativeLocation.properties.city/state` off the same
+    `/points` response and returns it as `locationLabel` (e.g. "Seattle,
+    WA") — confirmed live against `api.weather.gov/points/47.6062,-122.3321`.
+    Chosen over the FRTCON-era forecast-zone name per the open question
+    above. `getZoneByPoint`/`getActiveAlertsByPoint` are untouched and
+    still exported — item 3 decides whether either is still used.
+  - **Nearest-station staleness handled:** a new private
+    `findFreshObservation` tries up to 5 stations (in the order NWS's
+    `/gridpoints/{office}/{x},{y}/stations` collection returns them) and
+    takes the first with an observation timestamp within
+    `OBSERVATION_MAX_AGE_MS` (90 minutes), rather than trusting station #1
+    blindly. `getCurrentConditions` returns `null` (not a throw) if none
+    qualify, or if the stations request itself fails — it's a best-effort
+    secondary source and `classifySoupcon` already knows how to fall back
+    to the current hourly period when observation is `null`.
+  - **Cache TTLs added to `cache.js`:** `GRIDPOINT_CACHE_TTL_MS` (1h, same
+    as the old zone cache), `HOURLY_FORECAST_CACHE_TTL_MS` (30m),
+    `EXTENDED_FORECAST_CACHE_TTL_MS` (2h), `OBSERVATION_CACHE_TTL_MS` (5m,
+    matching the existing alerts TTL) — with matching
+    `GRIDPOINT_CACHE_PREFIX`/`HOURLY_FORECAST_CACHE_PREFIX`/
+    `EXTENDED_FORECAST_CACHE_PREFIX`/`OBSERVATION_CACHE_PREFIX` keys (still
+    `frtcon_`-namespaced for now — see item 9) and cache-key builders
+    following the existing `makeZoneCacheKey`/`makeAlertsCacheKey` pattern.
+    All four new prefixes were also added to `sweepExpiredCache`'s
+    `TTL_MS_BY_PREFIX` map so they get swept the same way existing keys do.
+    A `getCurrentConditions` miss (no fresh station found) is deliberately
+    *not* cached, since `getCacheItem` can't distinguish a cached `null`
+    from a genuine cache miss anyway (see `cache.js`) — no behavior lost by
+    skipping the write.
+  - **Verified against live `api.weather.gov`** (not just unit tests, since
+    this item is almost entirely about matching real API shapes): fetched
+    real `/points`, `/forecast/hourly`, `/forecast`, `/stations`, and
+    `/observations/latest` responses for Seattle, WA and confirmed the
+    exact field names/shapes this code assumes
+    (`forecastHourly`/`forecast`/`observationStations`/`relativeLocation`
+    URLs and fields, `stations.features[].id` being a full observation URL,
+    `observations/latest`'s `timestamp`/`textDescription`/
+    `precipitationLastHour` shape). Separately pulled 48h of hourly periods
+    plus 6 extended periods across 5 rain-prone cities (Miami, New Orleans,
+    Houston, Orlando, Tampa) and collected every distinct `shortForecast`
+    string seen (`Chance Showers And Thunderstorms`, `Slight Chance Rain
+    Showers`, `Showers And Thunderstorms Likely then Chance Showers And
+    Thunderstorms`, plus the clear/cloudy variants) — confirmed all of them
+    are caught by `soupcon.js`'s existing `RAIN_KEYWORDS`/`CLOUDY_KEYWORDS`/
+    `CLEAR_KEYWORDS` lists with no surprises, so no changes were needed
+    there. `npm run lint`, `npm run test` (19/19 still passing), and `npm
+    run build` all pass.
 
 ### 3. Wire into `App.jsx`
 

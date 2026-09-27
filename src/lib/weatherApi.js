@@ -1,4 +1,19 @@
-import { getCacheItem, setCacheItem, makeZoneCacheKey, makeAlertsCacheKey, ZIP_CACHE_PREFIX, ALERTS_CACHE_TTL_MS } from "./cache";
+import {
+  getCacheItem,
+  setCacheItem,
+  makeZoneCacheKey,
+  makeAlertsCacheKey,
+  makeGridpointCacheKey,
+  makeHourlyForecastCacheKey,
+  makeExtendedForecastCacheKey,
+  makeObservationCacheKey,
+  ZIP_CACHE_PREFIX,
+  ALERTS_CACHE_TTL_MS,
+  GRIDPOINT_CACHE_TTL_MS,
+  HOURLY_FORECAST_CACHE_TTL_MS,
+  EXTENDED_FORECAST_CACHE_TTL_MS,
+  OBSERVATION_CACHE_TTL_MS,
+} from "./cache";
 
 export const WEATHER_GOV_BASE = "https://api.weather.gov";
 export const ZIP_API_BASE = "https://api.zippopotam.us/us";
@@ -217,5 +232,159 @@ export async function getActiveAlertsByPoint(lat, lon, { signal, skipCache = fal
   const value = data?.features || [];
 
   setCacheItem(cacheKey, value);
+  return value;
+}
+
+// Shared by getHourlyForecast/getExtendedForecast/getCurrentConditions
+// below -- all three need the same /points response (it carries the grid
+// office/x/y used to build both forecast URLs, plus the observation
+// stations URL), so this fetches and caches it once instead of each of the
+// three hitting /points separately for the same location.
+async function getGridpointInfo(lat, lon, { signal } = {}) {
+  const cacheKey = makeGridpointCacheKey(lat, lon);
+  const cached = getCacheItem(cacheKey, GRIDPOINT_CACHE_TTL_MS);
+  if (cached) {
+    return cached;
+  }
+
+  let pointData;
+  try {
+    pointData = await fetchJson(`${WEATHER_GOV_BASE}/points/${lat},${lon}`, { signal });
+  } catch (err) {
+    const message = friendlyMessage(err, "This location isn't covered by the National Weather Service.");
+    throw message ? new Error(message) : err;
+  }
+
+  const p = pointData?.properties ?? {};
+  if (!p.forecastHourly || !p.forecast) {
+    throw new Error("Could not determine the NWS forecast grid for this location.");
+  }
+
+  const relLoc = p.relativeLocation?.properties;
+
+  const value = {
+    forecastHourlyUrl: p.forecastHourly,
+    forecastUrl: p.forecast,
+    observationStationsUrl: p.observationStations || null,
+    // City/state read better in a rain-forecast app than a forecast zone
+    // name (e.g. "Duluth, MN" vs. "Northern St. Louis County") -- SOUPCON
+    // uses this instead of the FRTCON-era getZoneByPoint name.
+    locationLabel: relLoc?.city && relLoc?.state ? `${relLoc.city}, ${relLoc.state}` : null,
+  };
+
+  setCacheItem(cacheKey, value);
+  return value;
+}
+
+export async function getHourlyForecast(lat, lon, { signal } = {}) {
+  const cacheKey = makeHourlyForecastCacheKey(lat, lon);
+  const cached = getCacheItem(cacheKey, HOURLY_FORECAST_CACHE_TTL_MS);
+  if (cached) {
+    return cached;
+  }
+
+  const gridpoint = await getGridpointInfo(lat, lon, { signal });
+
+  let data;
+  try {
+    data = await fetchJson(gridpoint.forecastHourlyUrl, { signal });
+  } catch (err) {
+    const message = friendlyMessage(err);
+    throw message ? new Error(message) : err;
+  }
+
+  const value = data?.properties?.periods || [];
+  setCacheItem(cacheKey, value);
+  return value;
+}
+
+export async function getExtendedForecast(lat, lon, { signal } = {}) {
+  const cacheKey = makeExtendedForecastCacheKey(lat, lon);
+  const cached = getCacheItem(cacheKey, EXTENDED_FORECAST_CACHE_TTL_MS);
+  if (cached) {
+    return cached;
+  }
+
+  const gridpoint = await getGridpointInfo(lat, lon, { signal });
+
+  let data;
+  try {
+    data = await fetchJson(gridpoint.forecastUrl, { signal });
+  } catch (err) {
+    const message = friendlyMessage(err);
+    throw message ? new Error(message) : err;
+  }
+
+  const value = data?.properties?.periods || [];
+  setCacheItem(cacheKey, value);
+  return value;
+}
+
+// A station can be listed as "the" observation station for a point and
+// still not have reported in hours (or ever) -- NWS doesn't guarantee
+// freshness, just proximity order. Rather than trust station #1 blindly
+// (SOUP_PLAN.md's nearest-station-staleness open question), this tries a
+// few of the nearest stations in order and takes the first one with a
+// reading recent enough to trust for "is it raining right now."
+const MAX_OBSERVATION_STATIONS_TO_TRY = 5;
+const OBSERVATION_MAX_AGE_MS = 90 * 60 * 1000;
+
+async function findFreshObservation(stationUrls, { signal } = {}) {
+  for (const stationUrl of stationUrls.slice(0, MAX_OBSERVATION_STATIONS_TO_TRY)) {
+    let obsData;
+    try {
+      obsData = await fetchJson(`${stationUrl}/observations/latest`, { signal });
+    } catch {
+      // This station has no recent observation at all (common -- not every
+      // listed station reports reliably); try the next one rather than
+      // failing the whole lookup over a single station's gap.
+      continue;
+    }
+
+    const props = obsData?.properties;
+    const timestamp = props?.timestamp ? new Date(props.timestamp).getTime() : NaN;
+    if (props && !Number.isNaN(timestamp) && Date.now() - timestamp <= OBSERVATION_MAX_AGE_MS) {
+      return props;
+    }
+  }
+  return null;
+}
+
+// Returns null (not a throw) when no fresh-enough observation could be
+// found -- this is a "nice to have" data source for level 1 specifically;
+// classifySoupcon already knows how to fall back to the current hourly
+// forecast period when observation is null, so a gap here shouldn't fail
+// the whole lookup the way a failed hourly/extended forecast fetch would.
+export async function getCurrentConditions(lat, lon, { signal } = {}) {
+  const cacheKey = makeObservationCacheKey(lat, lon);
+  const cached = getCacheItem(cacheKey, OBSERVATION_CACHE_TTL_MS);
+  if (cached) {
+    return cached;
+  }
+
+  const gridpoint = await getGridpointInfo(lat, lon, { signal });
+  if (!gridpoint.observationStationsUrl) {
+    return null;
+  }
+
+  let stationsData;
+  try {
+    stationsData = await fetchJson(gridpoint.observationStationsUrl, { signal });
+  } catch (err) {
+    console.error(err.message);
+    return null;
+  }
+
+  const stationUrls = (stationsData?.features || []).map((feature) => feature?.id).filter(Boolean);
+  const value = await findFreshObservation(stationUrls, { signal });
+
+  // Deliberately not caching a null result: getCacheItem can't distinguish
+  // a cached `null` from a cache miss (see cache.js), so caching it here
+  // would buy nothing over just letting the next call re-check -- and a
+  // station that had no fresh reading a few minutes ago may well have one
+  // now.
+  if (value) {
+    setCacheItem(cacheKey, value);
+  }
   return value;
 }
