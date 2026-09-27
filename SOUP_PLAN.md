@@ -996,6 +996,32 @@ precipitation events the same?"
   (`observationPrecipType`) — the reading has no type of its own. Also
   confirmed fine as-is: the 90-minute observation age limit.
 
+### 18. Soup recipes from the owner's wiki — open, not started
+
+Supersedes the "rotating soup recipes" deferral in item 4 with a concrete
+shape, agreed 2026-09-27 (waiting on the owner to send the wiki URL).
+
+- **Source:** the owner's own wiki, where their wife types in her
+  recipes. Licensing/attribution is a non-issue (family-authored); no
+  credit lines unless the owner asks for one.
+- **Plan (proposed, owner hasn't objected):**
+  - Extract recipes from the wiki page once, into static app data
+    (`src/data/recipe.js` becomes a list), not fetched live. No backend,
+    wikis often block cross-origin reads, and a wiki edit can't break the
+    app. New recipes = ask for a re-extract + redeploy.
+  - Reuse the existing `RecipeModal` (including its print view) for
+    whichever recipe is chosen.
+  - Menu shape decided by count once the page is seen: a few recipes →
+    one hamburger-menu item each; more than ~4-5 → a single "Soup
+    Recipes" item opening a picker.
+  - Check the extraction against the page before wiring it in (wiki
+    formatting varies); ask about anything ambiguous.
+- **Open until the URL arrives:** whether the wiki is reachable from this
+  machine (public, LAN-only, or login-gated — if gated, the owner exports
+  the page instead). Live-loading from the wiki (auto-updating, but
+  needs the wiki to allow cross-origin reads and makes the app depend on
+  it) is the fallback if re-extract + redeploy gets tedious.
+
 ---
 
 ## Suggested order
@@ -1010,29 +1036,22 @@ precipitation events the same?"
 6. **#10** (docs rewrite, once there's a stable thing to document)
 7. **#12 + #13** (infra + launch — last, and gated on domain registration)
 
-## Status: all 13 items done (2026-09-27)
+## Status (updated 2026-09-27, after items 14-18)
 
-The rebuild itself (items 1-11) and the infra/launch (items 12-13, done
-directly by the owner rather than Claude) are all complete —
-`soupcon.org` is live. What's left, not because it was skipped but because
-it genuinely couldn't be done from here or wasn't asked for:
+The rebuild (items 1-11) and infra/launch (12-13, done by the owner) are
+complete and `soupcon.org` is live. Items 14-17 are post-launch fixes and
+features, all done; item 18 is open. What's left:
 
-- **No live browser verification of the app itself.** Every code-level
-  item (1-11) was verified via `lint`/`test`/`build` and, where possible,
-  direct HTTP checks against the live site — but the actual interactive
-  UI (a real ZIP/geolocation lookup, the rain overlay, the share button,
-  the recipe modal, the PWA install flow specifically) has not been
-  exercised in a real browser this entire rebuild, since Claude in Chrome
-  wasn't connected in any of these sessions. Worth doing before treating
-  this as fully launched, the same rigor `PLAN.md`'s own items were held
-  to.
+- **Item 18, wiki soup recipes** — waiting on the wiki URL (replaces the
+  old "rotating soup recipes, deferred" entry).
+- **Real-device verification** — the app was finally exercised in a real
+  (headless) browser in item 17: lookups, overlays, recipe modal, share,
+  snow pill, phone width. Still unverified: the PWA install flow on an
+  actual phone (only testable from the production root, see
+  `CONTEXT.md`), and an actual print preview of the recipe.
 - **Cloudflare's managed robots.txt** shadowing the explicit
   `ai-input=yes` stance — a real, open decision (see `CONTEXT.md`), not a
   bug to fix.
-- **Rotating soup recipes** — explicitly deferred scope (item 4), not
-  started.
-- The two loose config files this infra review was based on
-  (`cloudflare.config.yml`, `soupcon.conf`, dropped at the repo root,
-  currently untracked) — worth deciding whether these get committed
-  somewhere in the repo as infra documentation/reference, moved elsewhere,
-  or left as scratch copies, rather than sitting untracked indefinitely.
+- **Deliberately left as-is (owner decisions, don't re-raise):** an
+  untyped `precipitationLastHour` reading defaults to rain; the 90-minute
+  observation age limit; NWS alert descriptions' hard line breaks.

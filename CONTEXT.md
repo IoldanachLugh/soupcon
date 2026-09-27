@@ -381,6 +381,20 @@ at soupcon.org:
   PWA rather than assuming one relaunch is enough to confirm a fix (or a
   regression) in service-worker behavior specifically.
 
+- **Browser testing without Claude in Chrome.** The system Chromium on
+  this host is a snap and refuses to start from a non-snap shell ("not a
+  snap cgroup"). What works: download a standalone
+  `chrome-headless-shell` into scratch space (`npx @puppeteer/browsers
+  install chrome-headless-shell@stable --path <scratch>`), run it with
+  `--no-sandbox` (Ubuntu's AppArmor blocks Chrome's user-namespace
+  sandbox here) and `--remote-debugging-port`, and drive it over the
+  DevTools protocol against `vite preview` of the production build — only
+  ever pointed at localhost and the public NWS/ZIP APIs. CDP's
+  `Fetch` domain can rewrite API responses to simulate weather (e.g.
+  snow). Watch out: the app's geolocation call accepts a 10-minute-old
+  fix (`maximumAge`), so changing the emulated location between lookups
+  in one session still returns the old position.
+
 ## Deliberately decided against (don't re-litigate without new info)
 
 - **Cloudflare Bot Fight Mode**: left off (carried over from FRTCON). No
@@ -399,10 +413,11 @@ at soupcon.org:
 
 ## Shelved for later (not started, but scoped)
 
-- **Rotating soup recipes.** The recipe modal currently shows one fixed
-  recipe (chicken noodle). Multiple recipes with some rotation mechanism
-  is a real planned feature, explicitly deferred during the rebuild rather
-  than built speculatively — see `SOUP_PLAN.md` item 4.
+- **Multiple soup recipes from the owner's wiki.** The recipe modal
+  currently shows one fixed recipe (chicken noodle). Planned: extract the
+  owner's wife's recipes from the owner's own wiki into static app data
+  and list them in the hamburger menu — see `SOUP_PLAN.md` item 18
+  (waiting on the wiki URL). No licensing concerns (family-authored).
 - **Web Share API on mobile** (native share sheet carrying condition text +
   link). The Facebook Share button itself is built (see above); this
   mobile variant is not.

@@ -236,9 +236,9 @@ be the right place to add proper NWS attribution.
 
 ## Ideas for later (not yet built)
 
-- **Rotating soup recipes**: the recipe modal currently shows one fixed
-  recipe (chicken noodle). Multiple recipes with some rotation (random,
-  scheduled, or tied to the SOUPCON level) is planned but not built.
+- **More soup recipes**: the recipe modal currently shows one fixed
+  recipe (chicken noodle). Planned: recipes extracted from the owner's own
+  recipe wiki, listed in the hamburger menu (see `SOUP_PLAN.md` item 18).
 - **Web Share API on mobile**: the Facebook Share button (see "What it
   does") covers the desktop-style flow; a native share sheet on mobile
   (carrying the condition text + a link directly) is not built.
