@@ -23,11 +23,12 @@ import { RecipeModal } from "./components/RecipeModal";
 import { IOSInstallHelp } from "./components/IOSInstallHelp";
 import { POTSTICKER_SOUP } from "./data/recipes/potstickerSoup";
 import { SENEGALESE_CHICKEN_SOUP } from "./data/recipes/senegaleseChickenSoup";
+import { LASAGNA_SOUP } from "./data/recipes/lasagnaSoup";
 import { pickSoupOfTheDay } from "./lib/soupOfTheDay";
 
 // All recipes currently available, for the "soup of the day" picker below
 // -- a new recipe file needs adding here too, alongside its menu item.
-const ALL_RECIPES = [POTSTICKER_SOUP, SENEGALESE_CHICKEN_SOUP];
+const ALL_RECIPES = [POTSTICKER_SOUP, SENEGALESE_CHICKEN_SOUP, LASAGNA_SOUP];
 
 export default function App() {
   const [zip, setZip] = useState("");
@@ -648,6 +649,17 @@ export default function App() {
                       }}
                     >
                       Senegalese Chicken Soup
+                    </button>
+
+                    <button
+                      type="button"
+                      className="dropdown-item"
+                      onClick={() => {
+                        setMenuOpen(false);
+                        setOpenRecipe(LASAGNA_SOUP);
+                      }}
+                    >
+                      Lasagna Soup
                     </button>
 
                     {!isStandalone && installPromptEvent ? (

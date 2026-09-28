@@ -21,7 +21,7 @@ Live at [soupcon.org](https://soupcon.org).
   the SOUPCON score itself (the score is forecast-based now, not
   alert-based — see "The SOUPCON scale" below).
 - Has a printable recipe modal, one hamburger-menu item per recipe
-  (currently Potsticker Soup and Senegalese Chicken Soup, extracted from
+  (currently Potsticker Soup, Senegalese Chicken Soup, and Lasagna Soup, extracted from
   the owner's own recipe wiki), that prints cleanly on its own,
   independent of the rest of the page.
 - Has a "Share" button (Facebook-blue, next to the alert count) that copies
@@ -130,6 +130,7 @@ src/
     recipes/
       potstickerSoup.js         — one recipe per file, each imported and
       senegaleseChickenSoup.js  — wired up separately (not a shared list)
+      lasagnaSoup.js
   hooks/
     useModalBehavior.js       — shared modal a11y: focus trap, focus
                                 restore, body scroll lock, Escape-to-close

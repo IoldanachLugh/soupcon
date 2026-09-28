@@ -280,7 +280,7 @@ existing origin server rather than standing up anything new:
   `setCacheItem` (duration-since-write), since the ask was specifically
   "cache until midnight local time," which needs a date-string comparison
   instead. Picks from a small `ALL_RECIPES` array in `App.jsx` (currently
-  just the two imported recipe objects) rather than scanning
+  the imported recipe objects, one per file) rather than scanning
   `src/data/recipes/` at build/runtime — adding a recipe still means
   adding it to this array by hand, the same manual step item 18 already
   established for its menu item/import.

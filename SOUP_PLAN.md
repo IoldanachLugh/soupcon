@@ -1144,6 +1144,16 @@ shape, agreed 2026-09-27 (waiting on the owner to send the wiki URL).
   - `npm run lint`, `npm run test` (57/57 — grown from the 51/51 recorded
     above from other work since, unrelated to this change), `npm run
     build` all pass.
+- **Done (re-index, 2026-09-28, new recipe):** owner asked to ingest
+  `Lasagna Soup` from the wiki. Fetched via `action=raw` (an initial
+  `WebFetch` pass again paraphrased the steps — discarded, per the
+  memory's warning). New `src/data/recipes/lasagnaSoup.js`, imported and
+  wired into `App.jsx` (menu item + `ALL_RECIPES`), 3 recipes so still
+  one menu item each. Its `Herb Mix`/`Cheese Topping` ingredient groups use
+  the inline `"Name:"` convention, which `RecipeModal` now renders bold.
+  No servings line, no narrative section on the page, so neither is
+  included. `Category:SOUPCON` also contains `Potato Leek Soup`, **not
+  ingested** (only Lasagna was requested) — flagging it.
 
 ### 19. "Soup of the day" pill — ✅ FIXED
 
