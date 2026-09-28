@@ -22,7 +22,7 @@ export const SENEGALESE_CHICKEN_SOUP = {
     "Stir in the curry powder, cayenne (or black pepper), and coriander, and fry for 2 more minutes. If the pan looks dry, add a little more olive oil.",
     "Pour in the chicken broth and scrape the bottom of the pot thoroughly with a wooden spoon.",
     "Add the tomato purée, crushed plum tomatoes, and salt and pepper.",
-    "Simmer for 30 minutes, stirring often and scraping the bottom every few minutes. Do not let it boil.",
+    "Simmer for 15-20 minutes, stirring often and scraping the bottom every few minutes. Do not let it boil.",
     "Temper the peanut butter: in a separate bowl, mix the peanut butter with a ladleful of the soup until it loosens and becomes airy, about the consistency of children's tempera paint. If it's still too stiff, keep adding small amounts of broth or liquid from the tomato can until it's right.",
     "Stir the tempered peanut butter into the pot. If the soup is too thick, thin it with more broth. If it's too thin, add more peanut butter.",
     "Add the cooked, shredded chicken. (If starting with raw chicken instead, boil it in water until cooked through, 15 to 20 minutes, then drain and shred before adding.)",
