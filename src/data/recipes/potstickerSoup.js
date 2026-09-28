@@ -36,6 +36,7 @@ export const POTSTICKER_SOUP = {
     "Lower the heat to medium and cook about 15 minutes to let the flavors blend. Remove and discard the orange peel.",
     "Add the potstickers, cover, and cook until tender, about 10 minutes.",
     "Stir in the parsley and one of the green onions, and serve.",
+    "Garnish with remaining scallions and sesame seeds.",
   ],
   storyHeading: "Soup Tales! Woo! Ooo!",
   storyParagraphs: [
