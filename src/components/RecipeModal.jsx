@@ -35,7 +35,12 @@ export function RecipeModal({ open, recipe, onClose, returnFocusRef }) {
           <div className="modal-section-title">Ingredients</div>
           <ul className="modal-list">
             {recipe.ingredients.map((item, index) => (
-              <li key={index} className="modal-list-item">
+              <li
+                key={index}
+                className={
+                  item.endsWith(":") ? "modal-list-item modal-list-item--group" : "modal-list-item"
+                }
+              >
                 {item}
               </li>
             ))}

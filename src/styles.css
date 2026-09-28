@@ -718,6 +718,14 @@ div[role="dialog"] {
   margin-bottom: 4px;
 }
 
+.modal-list-item--group {
+  list-style: none;
+  margin-left: -20px;
+  margin-top: 10px;
+  font-weight: bold;
+  color: #ffffff;
+}
+
 .modal-list-item--spaced {
   color: #e5d9f5;
   margin-bottom: 8px;
