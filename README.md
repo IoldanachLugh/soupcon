@@ -20,9 +20,10 @@ Live at [soupcon.org](https://soupcon.org).
 - Lists every raw active NWS alert covering your location, independent of
   the SOUPCON score itself (the score is forecast-based now, not
   alert-based — see "The SOUPCON scale" below).
-- Has a printable recipe modal (currently a chicken noodle soup recipe;
-  rotating soup recipes are planned but not built yet) that prints cleanly
-  on its own, independent of the rest of the page.
+- Has a printable recipe modal, one hamburger-menu item per recipe
+  (currently Potsticker Soup and Senegalese Chicken Soup, extracted from
+  the owner's own recipe wiki), that prints cleanly on its own,
+  independent of the rest of the page.
 - Has a "Share" button (Facebook-blue, next to the alert count) that copies
   the on-screen SOUPCON condition text to the clipboard and opens Facebook's
   share dialog in a new tab, so the user pastes the text into their post.
@@ -119,7 +120,9 @@ src/
                                 empty-forecast handling (fetch stubbed)
   data/
     soupMessages.js            — the SOUPCON 1–5 headline/title/commentary content
-    recipe.js                 — the current soup recipe
+    recipes/
+      potstickerSoup.js         — one recipe per file, each imported and
+      senegaleseChickenSoup.js  — wired up separately (not a shared list)
   hooks/
     useModalBehavior.js       — shared modal a11y: focus trap, focus
                                 restore, body scroll lock, Escape-to-close
@@ -236,9 +239,10 @@ be the right place to add proper NWS attribution.
 
 ## Ideas for later (not yet built)
 
-- **More soup recipes**: the recipe modal currently shows one fixed
-  recipe (chicken noodle). Planned: recipes extracted from the owner's own
-  recipe wiki, listed in the hamburger menu (see `SOUP_PLAN.md` item 18).
+- **Dedicated recipe pages**: recipes are currently shown in an overlay
+  modal (`RecipeModal.jsx`), reused for whichever recipe is picked from
+  the hamburger menu. Giving each recipe its own page instead (e.g. for
+  a shareable/deep-linkable URL) is a possible later change, not started.
 - **Web Share API on mobile**: the Facebook Share button (see "What it
   does") covers the desktop-style flow; a native share sheet on mobile
   (carrying the condition text + a link directly) is not built.

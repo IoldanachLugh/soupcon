@@ -413,11 +413,13 @@ at soupcon.org:
 
 ## Shelved for later (not started, but scoped)
 
-- **Multiple soup recipes from the owner's wiki.** The recipe modal
-  currently shows one fixed recipe (chicken noodle). Planned: extract the
-  owner's wife's recipes from the owner's own wiki into static app data
-  and list them in the hamburger menu — see `SOUP_PLAN.md` item 18
-  (waiting on the wiki URL). No licensing concerns (family-authored).
+- **Dedicated recipe pages instead of the overlay modal.** The recipe
+  modal (`RecipeModal.jsx`) currently renders whichever recipe is picked
+  as an in-page overlay (reused as-is for however many recipes exist —
+  see `SOUP_PLAN.md` item 18). The owner floated giving each recipe its
+  own page instead, once there's a real reason to (e.g. deep-linkable/
+  shareable recipe URLs, or SEO) — not started, no routing exists in this
+  app yet (single-page, no router dependency).
 - **Web Share API on mobile** (native share sheet carrying condition text +
   link). The Facebook Share button itself is built (see above); this
   mobile variant is not.
@@ -444,7 +446,7 @@ at soupcon.org:
   simpler, contextual-only (not manually curated) alternative if a full
   product-API integration ends up being more than it's worth.
 
-All shelved items above except the rotating-recipes one converge on the
+All shelved items above except the recipe-pages one converge on the
 same prerequisite: introducing a real backend/server-rendering layer.
 Worth treating as one combined migration rather than several separate ones
 when the time comes.

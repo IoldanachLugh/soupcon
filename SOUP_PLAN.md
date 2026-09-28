@@ -996,7 +996,7 @@ precipitation events the same?"
   (`observationPrecipType`) — the reading has no type of its own. Also
   confirmed fine as-is: the 90-minute observation age limit.
 
-### 18. Soup recipes from the owner's wiki — open, not started
+### 18. Soup recipes from the owner's wiki — ✅ FIXED
 
 Supersedes the "rotating soup recipes" deferral in item 4 with a concrete
 shape, agreed 2026-09-27 (waiting on the owner to send the wiki URL).
@@ -1021,6 +1021,87 @@ shape, agreed 2026-09-27 (waiting on the owner to send the wiki URL).
   the page instead). Live-loading from the wiki (auto-updating, but
   needs the wiki to allow cross-origin reads and makes the app depend on
   it) is the fallback if re-extract + redeploy gets tedious.
+- **Done:**
+  - **Extraction:** the wiki (thoughtleap.com, the owner's own domain —
+    see `CONTEXT.md`'s infra section) is reachable from this machine.
+    Indexed exactly `Category:SOUPCON` via the MediaWiki API
+    (`action=query&list=categorymembers`, no `continue` needed — only 2
+    pages currently exist in that category), then fetched each page's raw
+    wikitext via `action=raw`. **`WebFetch`'s AI-summarized output was
+    caught and discarded before use** — it paraphrased ingredient/step
+    text and even invented a display title ("Peanut Butter Chicken Soup")
+    for the page actually titled "Senegalese Chicken Soup"; switched to a
+    direct `curl` of the same `action=raw` URLs to get the exact wikitext
+    instead. The `== Ingredients ==`/`== Instructions ==` sections were
+    extracted, plus each page's personal narrative section (a "Soup
+    Tales!" / cook's-notes writeup) where one exists — initially left out,
+    then added back per the owner ("lets include that for flavor"); see
+    the follow-up note below for the resulting shape.
+  - **Static data, per the proposed shape:** `src/data/recipe.js` (the
+    single hardcoded placeholder) replaced with **one file per recipe**
+    under `src/data/recipes/` (`potstickerSoup.js`,
+    `senegaleseChickenSoup.js`), each a plain `{ title, ingredients,
+    steps }` object — same shape the old single `RECIPE` had, not a new
+    array/list data file, since the owner specifically asked for each
+    recipe in its own file, imported separately, rather than a
+    data-driven loop.
+  - **Menu shape:** 2 recipes → one hamburger-menu item each, per this
+    item's own "a few recipes" branch (no picker needed). `App.jsx`'s
+    single `recipeOpen` boolean replaced with `openRecipe` (holds the
+    selected recipe object, or `null`); two dropdown items ("Potsticker
+    Soup", "Senegalese Chicken Soup") each set it directly.
+  - **`RecipeModal`** now takes a `recipe` prop instead of importing a
+    hardcoded `RECIPE`, so the existing modal (including its print view)
+    is reused for whichever recipe is open, unchanged otherwise.
+  - **Verified live**, not just via tests: `npm run lint`, `npm run test`
+    (51/51 — unchanged, this item touches no classification logic),
+    `npm run build` all pass. Also drove a `vite preview` build with the
+    same scratch-space headless Chrome / raw DevTools-protocol approach
+    item 17 used (no `puppeteer-core` installed, so scripted directly
+    over a native Node `WebSocket`) and confirmed live: both menu items
+    appear with the right labels, each opens the correct recipe's modal
+    (title, 14 Potsticker ingredients, 11 Senegalese steps all matched
+    the source page).
+  - **Not done here, flagged by the owner as a future idea, not this
+    item's scope:** recipes currently still render as an overlay modal
+    (reusing `RecipeModal` as-is); dedicated per-recipe pages are a
+    possible later change, not built now — added to `CONTEXT.md`'s
+    shelved-work list.
+- **Done (follow-up, per owner — "lets include that for flavor"):** the
+  "Soup Tales!" narrative section, initially left out, is now part of the
+  recipe data and rendered.
+  - Recipe shape gained two optional fields, `storyHeading`/
+    `storyParagraphs` (only present when the wiki page actually has a
+    narrative section — `Senegalese Chicken Soup` currently doesn't have
+    one, so its file omits them). `RecipeModal.jsx` renders the section
+    conditionally (`recipe.storyHeading && recipe.storyParagraphs`) below
+    Steps, reusing the existing `.modal-paragraph` class (already used by
+    `IOSInstallHelp.jsx`) rather than adding new CSS — no `styles.css`
+    changes needed.
+  - **Re-fetched both pages fresh rather than reusing the earlier
+    extraction** (per the "we'll be indexing this regularly" heads-up),
+    and the Potsticker page had already been revised since the initial
+    extraction — ingredient list updated to match (`1 tbs` not `1 TBSP`,
+    `ham or char siu`, ginger amount/jarred-alternative reworded,
+    `chopped parsley` in place of `chopped cilantro`).
+  - **Two content quirks found in the live source, flagged rather than
+    silently resolved:** (1) a likely typo, "sliced finr" — corrected to
+    "sliced fine" as an obvious spelling fix; (2) the ingredients list now
+    says "chopped parsley" but the instructions still say "Stir in the
+    cilantro and serve" — a real inconsistency in the source content
+    (probably a partial edit), transcribed verbatim rather than guessed
+    at, since fixing it belongs upstream on the wiki page and would
+    otherwise just get overwritten by the next re-index anyway.
+  - `npm run lint`, `npm run test` (51/51, unchanged), `npm run build`
+    all pass. Verified live in headless Chrome: the "Soup Tales! Woo!
+    Ooo!" heading and all 8 paragraphs render for Potsticker Soup;
+    Senegalese Chicken Soup's modal correctly shows zero story paragraphs
+    (no section rendered) since that page has none.
+  - **Memory updated** (`recipe-source-own-wiki.md` in the assistant's
+    persistent memory, not this repo) with the extraction procedure,
+    including the curl-not-WebFetch gotcha and how to handle repeat
+    indexing runs (match by page title, update in place vs. new file,
+    flag rather than auto-delete a page that drops out of the category).
 
 ---
 
@@ -1036,14 +1117,12 @@ shape, agreed 2026-09-27 (waiting on the owner to send the wiki URL).
 6. **#10** (docs rewrite, once there's a stable thing to document)
 7. **#12 + #13** (infra + launch — last, and gated on domain registration)
 
-## Status (updated 2026-09-27, after items 14-18)
+## Status (updated 2026-09-28, after item 18)
 
 The rebuild (items 1-11) and infra/launch (12-13, done by the owner) are
-complete and `soupcon.org` is live. Items 14-17 are post-launch fixes and
-features, all done; item 18 is open. What's left:
+complete and `soupcon.org` is live. Items 14-18 are post-launch fixes and
+features, all done. What's left:
 
-- **Item 18, wiki soup recipes** — waiting on the wiki URL (replaces the
-  old "rotating soup recipes, deferred" entry).
 - **Real-device verification** — the app was finally exercised in a real
   (headless) browser in item 17: lookups, overlays, recipe modal, share,
   snow pill, phone width. Still unverified: the PWA install flow on an

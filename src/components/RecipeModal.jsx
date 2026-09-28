@@ -1,12 +1,11 @@
 import { useRef } from "react";
-import { RECIPE } from "../data/recipe";
 import { useModalBehavior } from "../hooks/useModalBehavior";
 
-export function RecipeModal({ open, onClose, returnFocusRef }) {
+export function RecipeModal({ open, recipe, onClose, returnFocusRef }) {
   const cardRef = useRef(null);
   useModalBehavior(open, onClose, cardRef, returnFocusRef);
 
-  if (!open) return null;
+  if (!open || !recipe) return null;
 
   return (
     <div className="soupcon-recipe-overlay modal-overlay" onClick={onClose}>
@@ -20,7 +19,7 @@ export function RecipeModal({ open, onClose, returnFocusRef }) {
       >
         <div className="modal-header-row">
           <h2 id="recipe-modal-title" className="modal-title">
-            {RECIPE.title}
+            {recipe.title}
           </h2>
           <div className="soupcon-no-print modal-button-group">
             <button type="button" onClick={() => window.print()} className="modal-print-button">
@@ -35,7 +34,7 @@ export function RecipeModal({ open, onClose, returnFocusRef }) {
         <div className="modal-section">
           <div className="modal-section-title">Ingredients</div>
           <ul className="modal-list">
-            {RECIPE.ingredients.map((item, index) => (
+            {recipe.ingredients.map((item, index) => (
               <li key={index} className="modal-list-item">
                 {item}
               </li>
@@ -46,13 +45,24 @@ export function RecipeModal({ open, onClose, returnFocusRef }) {
         <div className="modal-section--spaced">
           <div className="modal-section-title">Steps</div>
           <ol className="modal-list">
-            {RECIPE.steps.map((step, index) => (
+            {recipe.steps.map((step, index) => (
               <li key={index} className="modal-list-item--spaced">
                 {step}
               </li>
             ))}
           </ol>
         </div>
+
+        {recipe.storyHeading && recipe.storyParagraphs ? (
+          <div className="modal-section--spaced">
+            <div className="modal-section-title">{recipe.storyHeading}</div>
+            {recipe.storyParagraphs.map((paragraph, index) => (
+              <p key={index} className="modal-paragraph">
+                {paragraph}
+              </p>
+            ))}
+          </div>
+        ) : null}
       </div>
     </div>
   );

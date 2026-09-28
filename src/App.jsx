@@ -21,6 +21,8 @@ import { SoupconMessage } from "./components/SoupconMessage";
 import { AlertCard } from "./components/AlertCard";
 import { RecipeModal } from "./components/RecipeModal";
 import { IOSInstallHelp } from "./components/IOSInstallHelp";
+import { POTSTICKER_SOUP } from "./data/recipes/potstickerSoup";
+import { SENEGALESE_CHICKEN_SOUP } from "./data/recipes/senegaleseChickenSoup";
 
 export default function App() {
   const [zip, setZip] = useState("");
@@ -29,7 +31,7 @@ export default function App() {
   const [statusMessage, setStatusMessage] = useState("");
   const [source, setSource] = useState("browser");
   const [result, setResult] = useState(null);
-  const [recipeOpen, setRecipeOpen] = useState(false);
+  const [openRecipe, setOpenRecipe] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [iosHelpOpen, setIosHelpOpen] = useState(false);
   const [installPromptEvent, setInstallPromptEvent] = useState(null);
@@ -623,10 +625,21 @@ export default function App() {
                       className="dropdown-item"
                       onClick={() => {
                         setMenuOpen(false);
-                        setRecipeOpen(true);
+                        setOpenRecipe(POTSTICKER_SOUP);
                       }}
                     >
-                      Soup Recipe
+                      Potsticker Soup
+                    </button>
+
+                    <button
+                      type="button"
+                      className="dropdown-item"
+                      onClick={() => {
+                        setMenuOpen(false);
+                        setOpenRecipe(SENEGALESE_CHICKEN_SOUP);
+                      }}
+                    >
+                      Senegalese Chicken Soup
                     </button>
 
                     {!isStandalone && installPromptEvent ? (
@@ -790,8 +803,9 @@ export default function App() {
     </div>
 
     <RecipeModal
-      open={recipeOpen}
-      onClose={() => setRecipeOpen(false)}
+      open={openRecipe !== null}
+      recipe={openRecipe}
+      onClose={() => setOpenRecipe(null)}
       returnFocusRef={menuButtonRef}
     />
     </>
