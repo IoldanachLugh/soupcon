@@ -88,6 +88,7 @@ div[role="dialog"] {
 @media print {
   .soupcon-app-root {
     display: none !important;
+    line-height:1;
   }
 
   .soupcon-recipe-overlay {
@@ -96,6 +97,7 @@ div[role="dialog"] {
     background: none !important;
     padding: 0 !important;
     display: block !important;
+    line-height:1;
   }
 
   .soupcon-recipe-card {
@@ -109,6 +111,7 @@ div[role="dialog"] {
     background: #ffffff !important;
     padding: 0 !important;
     font-size: 11pt !important;
+    line-height:1;
   }
 
   .soupcon-recipe-card,
