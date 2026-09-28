@@ -358,14 +358,15 @@ div[role="dialog"] {
   flex-wrap: wrap;
 }
 
-/* Badge, alert-count tag, Share button, and the snow crosslink pill share
-   one height/font size and are centered on the same line. .alert-tag's own
-   margins (meant for wrapped tag lists elsewhere) are zeroed here since the
-   row's gap handles spacing -- its margin-bottom otherwise pushes it ~4px
-   off-center. */
+/* Badge, alert-count tag, Share button, the soup-of-the-day pill, and the
+   snow crosslink pill share one height/font size and are centered on the
+   same line. .alert-tag's own margins (meant for wrapped tag lists
+   elsewhere) are zeroed here since the row's gap handles spacing -- its
+   margin-bottom otherwise pushes it ~4px off-center. */
 .soupcon-status-row > .soupcon-badge,
 .soupcon-status-row > .alert-tag,
 .soupcon-status-row > .share-fb-button,
+.soupcon-status-row > .soup-of-the-day-pill,
 .soupcon-status-row > .snow-crosslink-pill {
   box-sizing: border-box;
   display: inline-flex;
@@ -411,6 +412,23 @@ div[role="dialog"] {
   padding-left: 10px;
   padding-right: 10px;
   white-space: nowrap;
+}
+
+/* "Soup of the day" pill, opens that recipe's modal. Same pill shape as
+   the snow crosslink, but the condition-status box's amber (see
+   .soupcon-condition-status) instead of the blue accent -- warm/food-coded
+   rather than rain-coded, and distinct from the blue Share button and
+   snow pill next to it. */
+.soup-of-the-day-pill {
+  background: #f59e0b;
+  color: #3f2b00;
+  font-weight: bold;
+  border: none;
+  border-radius: 999px;
+  padding-left: 10px;
+  padding-right: 10px;
+  white-space: nowrap;
+  cursor: pointer;
 }
 
 .soupcon-updated-at {

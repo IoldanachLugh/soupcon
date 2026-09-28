@@ -29,6 +29,10 @@ Live at [soupcon.org](https://soupcon.org).
   share dialog in a new tab, so the user pastes the text into their post.
   Facebook's `sharer.php` only accepts a URL (no custom text), which is why
   the text goes via clipboard; the link card comes from the `u` param.
+- Shows a "Soup of the day" pill ("Lets make {recipe title}!") next to the
+  Share button — one recipe chosen at random per local calendar day (cached
+  in `localStorage` until local midnight, then re-rolled on the next visit;
+  see `src/lib/soupOfTheDay.js`), opening that recipe's modal on click.
 - Shows a "Snow soon, check your FRTCON!" pill ("Snow! Check FRTCON!"
   when it's already snowing) next to the Share button whenever
   snow (not rain) is the driving forecast — a cross-promo link to
@@ -118,6 +122,9 @@ src/
     weatherApi.test.js         — vitest suite for the API layer's station
                                 selection, request de-dup, and
                                 empty-forecast handling (fetch stubbed)
+    soupOfTheDay.js            — picks/caches the "soup of the day" pill's
+                                recipe until local midnight
+    soupOfTheDay.test.js       — vitest suite for the above
   data/
     soupMessages.js            — the SOUPCON 1–5 headline/title/commentary content
     recipes/

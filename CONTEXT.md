@@ -274,6 +274,17 @@ existing origin server rather than standing up anything new:
   — none of those are "the app's chrome," they're semantic/brand colors
   independent of the SOUPCON hue.
 
+- **"Soup of the day" pill** (`src/lib/soupOfTheDay.js`, `SOUP_PLAN.md`
+  item 19). Caches its pick by **local calendar date**, not a rolling
+  TTL — deliberately not built on `cache.js`'s `getCacheItem`/
+  `setCacheItem` (duration-since-write), since the ask was specifically
+  "cache until midnight local time," which needs a date-string comparison
+  instead. Picks from a small `ALL_RECIPES` array in `App.jsx` (currently
+  just the two imported recipe objects) rather than scanning
+  `src/data/recipes/` at build/runtime — adding a recipe still means
+  adding it to this array by hand, the same manual step item 18 already
+  established for its menu item/import.
+
 ## Agent readiness
 
 Carried over from FRTCON's own agent-readiness work (a Cloudflare scan

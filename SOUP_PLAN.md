@@ -1103,6 +1103,78 @@ shape, agreed 2026-09-27 (waiting on the owner to send the wiki URL).
     indexing runs (match by page title, update in place vs. new file,
     flag rather than auto-delete a page that drops out of the category).
 
+### 19. "Soup of the day" pill — ✅ FIXED
+
+- **Ask (per user):** "lets pick a soup of the day and create a pill
+  button just to the right of Facebook share. Cache the chosen soup until
+  midnight local time and pick a new one at random the next day the site
+  is accessed. Name it 'Lets make {soupname}!'"
+- **Done:**
+  - **`src/lib/soupOfTheDay.js`** — new `pickSoupOfTheDay(recipes, {
+    now, random })`, injectable `now`/`random` for tests (same pattern
+    `classifySoupcon` already uses for `now`). Caches `{ date, title }` in
+    `localStorage` under `soupcon_soup_of_the_day`, keyed off a
+    local-calendar-date string (`getFullYear`/`getMonth`/`getDate`, not
+    UTC) rather than a rolling TTL like `cache.js`'s other entries — this
+    needed to flip specifically at local midnight, however long that is
+    from the last pick, which a duration-based TTL can't express. Not
+    folded into `cache.js`'s `getCacheItem`/`setCacheItem` for the same
+    reason. If the cached title no longer matches any current recipe
+    (one was removed), or `localStorage` throws (private browsing,
+    blocked site data), it falls back to picking fresh rather than
+    erroring.
+  - **`App.jsx`:** a module-level `ALL_RECIPES` array (`[POTSTICKER_SOUP,
+    SENEGALESE_CHICKEN_SOUP]`) feeds the picker — the per-file/
+    separate-import pattern item 18 set up for the *menu* is unchanged;
+    this is a second, small, explicit use of the same imported objects,
+    not a rotation mechanism replacing the menu. A new recipe needs
+    adding to this array too, alongside its menu item and import (flagged
+    in an inline comment). `soupOfTheDay` is computed once via a lazy
+    `useState` initializer (so there's no flash of a missing pill on
+    first render, unlike a `useEffect`-after-mount approach) and clicking
+    the pill opens that recipe's modal via the existing `openRecipe`
+    state — same mechanism the menu items use.
+  - **Placement:** rendered directly after the Share button and before
+    the snow crosslink pill in `.soupcon-status-row`, per "just to the
+    right of Facebook share."
+  - **Label:** exactly `Lets make {title}!` (no apostrophe), per the
+    user's own wording, not autocorrected to "Let's."
+  - **Styling:** `.soup-of-the-day-pill` in `styles.css` — same pill
+    shape/sizing as `.snow-crosslink-pill` (added to the shared
+    height/font-size selector group), but the condition-status box's
+    amber (`#f59e0b`/`#3f2b00`) instead of the blue accent, so it reads
+    as its own warm/food-coded thing next to the blue Share button and
+    snow pill rather than blending in.
+  - **Tests:** new `src/lib/soupOfTheDay.test.js` (6 tests) — empty/null
+    recipe list, injected-random selection, same-day caching (a second
+    call with a different random draw and a later same-day timestamp
+    still returns the first pick, and the second random function is
+    never even invoked), a fresh pick once local midnight has passed, a
+    stale cached title (recipe removed) falling back to a fresh pick, and
+    a thrown `localStorage` access still returning a pick. Stubs a
+    working in-memory `localStorage` for these tests specifically (real
+    `localStorage` isn't available under vitest's default node
+    environment — see `weatherApi.test.js`'s note — so this is the first
+    test file in the project to actually exercise real caching behavior
+    rather than treating every cache read as a miss).
+  - `npm run lint`, `npm run test` (57/57, up from 51), `npm run build`
+    all pass. **Verified live** in headless Chrome against a `vite
+    preview` build with a real ZIP lookup (Seattle): pill renders in the
+    right position with the exact label text, clicking it opens the
+    matching recipe's modal, and the pick is written to `localStorage`
+    and still matches after a full page reload (same local day).
+    Debugging note for next time: setting `<input>.value` directly and
+    dispatching a plain `input` event does **not** update a React
+    controlled input in this app — needs the native
+    `HTMLInputElement.prototype.value` setter called via `.call()` first,
+    then the `input` event, or React's own change handler never fires
+    (confirmed by comparing a script that hung with one that didn't).
+  - **Not tested:** the actual local-midnight rollover in a real browser
+    session (would require leaving a tab open across midnight, or
+    manipulating system clock) — covered instead by the injectable-`now`
+    unit tests above, same tradeoff `classifySoupcon`'s own "ended
+    forecast periods" tests made.
+
 ---
 
 ## Suggested order

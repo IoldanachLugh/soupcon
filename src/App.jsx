@@ -23,6 +23,11 @@ import { RecipeModal } from "./components/RecipeModal";
 import { IOSInstallHelp } from "./components/IOSInstallHelp";
 import { POTSTICKER_SOUP } from "./data/recipes/potstickerSoup";
 import { SENEGALESE_CHICKEN_SOUP } from "./data/recipes/senegaleseChickenSoup";
+import { pickSoupOfTheDay } from "./lib/soupOfTheDay";
+
+// All recipes currently available, for the "soup of the day" picker below
+// -- a new recipe file needs adding here too, alongside its menu item.
+const ALL_RECIPES = [POTSTICKER_SOUP, SENEGALESE_CHICKEN_SOUP];
 
 export default function App() {
   const [zip, setZip] = useState("");
@@ -32,6 +37,9 @@ export default function App() {
   const [source, setSource] = useState("browser");
   const [result, setResult] = useState(null);
   const [openRecipe, setOpenRecipe] = useState(null);
+  // Lazy initializer so this is picked (and, on a new day, re-picked) once
+  // on mount, with no flash of a missing pill on first render.
+  const [soupOfTheDay] = useState(() => pickSoupOfTheDay(ALL_RECIPES));
   const [menuOpen, setMenuOpen] = useState(false);
   const [iosHelpOpen, setIosHelpOpen] = useState(false);
   const [installPromptEvent, setInstallPromptEvent] = useState(null);
@@ -744,6 +752,16 @@ export default function App() {
                   </svg>
                   <span className="share-fb-label">Share</span>
                 </button>
+
+                {soupOfTheDay ? (
+                  <button
+                    type="button"
+                    className="soup-of-the-day-pill"
+                    onClick={() => setOpenRecipe(soupOfTheDay)}
+                  >
+                    Lets make {soupOfTheDay.title}!
+                  </button>
+                ) : null}
 
                 {soupcon.precipType === "snow" ? (
                   <a
