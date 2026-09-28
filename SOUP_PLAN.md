@@ -1102,6 +1102,48 @@ shape, agreed 2026-09-27 (waiting on the owner to send the wiki URL).
     including the curl-not-WebFetch gotcha and how to handle repeat
     indexing runs (match by page title, update in place vs. new file,
     flag rather than auto-delete a page that drops out of the category).
+- **Done (re-index, 2026-09-28):** owner asked to re-ingest the Potsticker
+  recipe after a wiki edit. The wiki page itself was renamed to
+  `Potsticker (Dumpling soup)` (still the sole `Category:SOUPCON` member
+  matching the old Potsticker file, matched by content not filename per
+  the memory's matching rule) — the app's displayed recipe title and
+  hamburger-menu label were **left as "Potsticker Soup"**, since that's an
+  app-level display choice, not wikitext content, and nothing asked for
+  it to track the wiki's internal page title; flagging here in case the
+  owner wants it changed.
+  - **Recipe content substantially revised upstream:** the dumpling
+    dipping sauce is now made from scratch as its own step (`soy sauce,
+    rice vinegar, mirin, honey, sesame oil, granulated garlic, granulated
+    onion`) rather than the old "20 frozen potstickers with their sauce"
+    assumption; `⅓ cup dry sherry` dropped; a `Garnish` group (parsley,
+    sesame seeds, green onions) added; steps re-ordered/reworded to match.
+    Story section also reworded/expanded (still 8 paragraphs) — transcribed
+    verbatim per the no-paraphrase rule.
+  - **Schema question flagged, not resolved:** the source page now groups
+    ingredients under sub-headings (main list / `Potsticker Sauce` /
+    `Garnish`) via wiki `===` headers, but the recipe data shape
+    (`{ title, ingredients: string[], steps, storyHeading?,
+    storyParagraphs? }`) has no concept of ingredient groups, and
+    `RecipeModal.jsx` renders `ingredients` as one flat `<ul>`. Rather than
+    changing the shape/component (out of scope for a data re-ingest),
+    `"Potsticker Sauce:"` and `"Garnish:"` were kept as plain string
+    entries inline in the flat `ingredients` array, in source order — they
+    render as ordinary list items, not as real sub-headers. If more
+    recipes bring grouped ingredients, worth a real fix (e.g. a `groups`
+    shape).
+  - **Real content inconsistency in the source, transcribed as-is per the
+    verbatim rule (not silently fixed):** step 6 says "Add the broth,
+    potsticker sauce, **mirin**, ham, ginger..." even though mirin is
+    already mixed into the potsticker sauce in step 1 — looks like a
+    leftover from the previous `sherry` ingredient's wording that wasn't
+    fully updated when the recipe was reworked. Belongs upstream.
+  - Also picked up the still-present "Makes 4 servings." line at the top
+    of the page — **not added to the data**, since the recipe shape has no
+    servings field and `RecipeModal.jsx` doesn't render one; flagging as a
+    possible future field rather than inventing a place to put it.
+  - `npm run lint`, `npm run test` (57/57 — grown from the 51/51 recorded
+    above from other work since, unrelated to this change), `npm run
+    build` all pass.
 
 ### 19. "Soup of the day" pill — ✅ FIXED
 
