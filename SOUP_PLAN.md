@@ -1227,6 +1227,40 @@ shape, agreed 2026-09-27 (waiting on the owner to send the wiki URL).
     unit tests above, same tradeoff `classifySoupcon`'s own "ended
     forecast periods" tests made.
 
+### 20. "Sources" panel (was `?stations=1` debug panel) — ✅ FIXED
+
+- **Trigger (per user):** ZIP 12577 showed SOUPCON1 with nothing on radar
+  and no rain. Investigated live: the nearest station (KSWF) was stale/blank
+  so was skipped, and the next (KMGJ, 8.5 mi) had a single "Light Rain"
+  observation at 19:20Z with no raw METAR, sandwiched between "Cloudy"
+  readings (its 19:17Z METAR showed no precipitation), while the hourly
+  forecast said 2%. So one glitchy reading from the nearest usable station
+  won level 1. Asked how to guard against that; owner chose instead to add
+  a way to *see* the data behind the score: "if the user adds stations=1 or
+  stations=true then, under the alerts, show the other results from the NWS
+  that are driving the condition status."
+- **Done:**
+  - `weatherApi.js`: new `getStationReadings` (debug only, uncached, one
+    request per candidate station) returns each candidate's id, distance,
+    timestamp, description, precip reading, `usable` and `chosen` flags,
+    using the same station selection and usability rules as
+    `getCurrentConditions`. `selectObservationStations` now wraps a new
+    `selectObservationStationsWithDistance` (same behavior).
+  - New `StationDebugPanel.jsx`, rendered under the alerts in `App.jsx` only
+    when the URL has `stations=1`/`stations=true` (parsed once at module
+    load). Shows station readings (USED/skipped), the next 12 hourly and 4
+    extended periods with the precip type the classifier reads from each.
+    Refetches whenever the main data refreshes. Small `.station-debug-*`
+    styles.
+  - 1 new test (58/58); lint and build pass.
+  - **Follow-up (per owner):** heading changed from "Condition data (debug)" to a collapsed "Sources +/−" toggle; when expanded, the three data types render as one card with a header per type.
+  - **Follow-up (per owner):** the `stations` URL parameter was removed; the Sources panel is always shown (collapsed). Station readings are now fetched only while it's expanded, so normal lookups make no extra requests.
+  - **Deliberately not changed:** the classifier itself still trusts the
+    nearest usable station's latest reading, so a single bad observation can
+    still produce SOUPCON1. Options raised (not chosen): require forecast
+    corroboration, require a second station.
+  - **Not verified in a browser** (code, tests and live-API checks only).
+
 ---
 
 ## Suggested order

@@ -348,7 +348,7 @@ export function haversineMiles(lat1, lon1, lat2, lon2) {
 // sorts last (Array.prototype.sort is stable, so NWS's order is kept among
 // those) -- it can still be picked to reach the minimum, but never counts
 // as within the radius.
-export function selectObservationStations(features, lat, lon) {
+export function selectObservationStationsWithDistance(features, lat, lon) {
   const byDistance = (features || [])
     .filter((feature) => feature?.id)
     .map((feature) => {
@@ -363,7 +363,11 @@ export function selectObservationStations(features, lat, lon) {
 
   const withinRadius = byDistance.filter((station) => station.miles <= OBSERVATION_STATION_RADIUS_MILES).length;
   const count = Math.min(MAX_OBSERVATION_STATIONS_TO_TRY, Math.max(MIN_OBSERVATION_STATIONS_TO_TRY, withinRadius));
-  return byDistance.slice(0, count).map((station) => station.url);
+  return byDistance.slice(0, count);
+}
+
+export function selectObservationStations(features, lat, lon) {
+  return selectObservationStationsWithDistance(features, lat, lon).map((station) => station.url);
 }
 
 // Fresh isn't enough on its own: plenty of stations (including some major
@@ -446,4 +450,44 @@ export async function getCurrentConditions(lat, lon, { signal, skipCache = false
     setCacheItem(cacheKey, value);
   }
   return value;
+}
+
+// Used only by the "Sources" panel (fetched while it is open): every candidate
+// station's latest reading in nearest-first order -- the same stations and
+// the same usability rules getCurrentConditions applies -- so it's visible
+// which one is actually driving "currently raining" and why the nearer ones
+// were skipped. Never cached and never part of a normal lookup; costs one
+// request per candidate station. `chosen` marks the reading
+// findFreshObservation would pick (the nearest usable one).
+export async function getStationReadings(lat, lon, { signal } = {}) {
+  const gridpoint = await getGridpointInfo(lat, lon, { signal });
+  if (!gridpoint.observationStationsUrl) return [];
+
+  const stationsData = await fetchJson(gridpoint.observationStationsUrl, { signal });
+  const stations = selectObservationStationsWithDistance(stationsData?.features, lat, lon);
+
+  const readings = await Promise.all(
+    stations.map(async ({ url, miles }) => {
+      const stationId = url.split("/").pop();
+      try {
+        const data = await fetchJson(`${url}/observations/latest`, { signal });
+        const props = data?.properties ?? null;
+        return {
+          stationId,
+          miles,
+          timestamp: props?.timestamp ?? null,
+          textDescription: props?.textDescription ?? "",
+          precipitationLastHour: props?.precipitationLastHour?.value ?? null,
+          usable: isUsableObservation(props),
+          error: null,
+        };
+      } catch (err) {
+        if (signal?.aborted) throw err;
+        return { stationId, miles, timestamp: null, textDescription: "", precipitationLastHour: null, usable: false, error: "no observation" };
+      }
+    })
+  );
+
+  const chosenIndex = readings.findIndex((reading) => reading.usable);
+  return readings.map((reading, index) => ({ ...reading, chosen: index === chosenIndex }));
 }

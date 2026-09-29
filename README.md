@@ -20,6 +20,10 @@ Live at [soupcon.org](https://soupcon.org).
 - Lists every raw active NWS alert covering your location, independent of
   the SOUPCON score itself (the score is forecast-based now, not
   alert-based — see "The SOUPCON scale" below).
+- Has a collapsible "Sources" section
+  under the alerts that lists every nearby station's latest reading
+  (which one is used, which were skipped and why) plus the hourly/extended
+  forecast periods the score is computed from. Collapsed by default.
 - Has a printable recipe modal, one hamburger-menu item per recipe
   (currently Potsticker Soup, Senegalese Chicken Soup, and Lasagna Soup, extracted from
   the owner's own recipe wiki), that prints cleanly on its own,
@@ -139,6 +143,8 @@ src/
     SnowOverlay.jsx
     SoupconBadge.jsx
     SoupconMessage.jsx         — the condition status box
+    StationDebugPanel.jsx      — "Sources" panel (raw station and
+                                forecast data behind the condition)
     AlertCard.jsx
     RecipeModal.jsx
     IOSInstallHelp.jsx

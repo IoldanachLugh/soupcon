@@ -19,6 +19,7 @@ import { SnowOverlay } from "./components/SnowOverlay";
 import { SoupconBadge } from "./components/SoupconBadge";
 import { SoupconMessage } from "./components/SoupconMessage";
 import { AlertCard } from "./components/AlertCard";
+import { StationDebugPanel } from "./components/StationDebugPanel";
 import { RecipeModal } from "./components/RecipeModal";
 import { IOSInstallHelp } from "./components/IOSInstallHelp";
 import { POTSTICKER_SOUP } from "./data/recipes/potstickerSoup";
@@ -827,6 +828,8 @@ export default function App() {
                 result.alerts.map((feature) => <AlertCard key={feature.id} feature={feature} />)
               )}
             </div>
+
+            <StationDebugPanel result={result} />
           </div>
         ) : null}
       </div>

@@ -3,6 +3,7 @@ import {
   getLocationLabel,
   getHourlyForecast,
   getCurrentConditions,
+  getStationReadings,
   haversineMiles,
   selectObservationStations,
 } from "./weatherApi";
@@ -152,6 +153,34 @@ describe("getCurrentConditions", () => {
 
     const observation = await getCurrentConditions(10.005, 20.005);
     expect(observation.textDescription).toBe("Snow");
+  });
+});
+
+describe("getStationReadings", () => {
+  const fresh = () => new Date(Date.now() - 10 * 60 * 1000).toISOString();
+  const stale = () => new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString();
+  const feature = (id, latOffset) => ({ id: `https://nws.test/st/${id}`, geometry: { coordinates: [20.006, 10.006 + latOffset] } });
+
+  it("reports every candidate nearest-first and marks the one classification would use", async () => {
+    stubFetch((url) => {
+      if (url.includes("/points/")) return Promise.resolve(jsonResponse(POINTS));
+      if (url === "https://nws.test/stations") {
+        return Promise.resolve(jsonResponse({ features: [feature("B", 0.1), feature("A", 0.05), feature("C", 0.15)] }));
+      }
+      if (url === "https://nws.test/st/A/observations/latest") {
+        return Promise.resolve(jsonResponse({ properties: { timestamp: stale(), textDescription: "" } }));
+      }
+      if (url === "https://nws.test/st/B/observations/latest") {
+        return Promise.resolve(jsonResponse({ properties: { timestamp: fresh(), textDescription: "Light Rain" } }));
+      }
+      return Promise.reject(new Error("down"));
+    });
+
+    const readings = await getStationReadings(10.006, 20.006);
+    expect(readings.map((r) => r.stationId)).toEqual(["A", "B", "C"]);
+    expect(readings.map((r) => r.usable)).toEqual([false, true, false]);
+    expect(readings.map((r) => r.chosen)).toEqual([false, true, false]);
+    expect(readings[2].error).toBeTruthy();
   });
 });
 
