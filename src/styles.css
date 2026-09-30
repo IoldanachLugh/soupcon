@@ -17,7 +17,7 @@ body,
    font-size/line-height (most raw NWS/recipe text and a handful of
    <p> tags -- see .body-text, .modal-paragraph, .nws-alert-* below).
    Carried over from the Vite starter template's :root rule when
-   src/index.css was removed (see PLAN.md #9) because enough of the app
+   src/index.css was removed (see FRTCON_PLAN.md #9) because enough of the app
    actually depends on it that dropping it silently would have shrunk
    most unstyled text from 18px/16px-responsive down to the browser
    default 16px fixed. */
@@ -138,7 +138,7 @@ div[role="dialog"] {
   border: none;
   /* Intentional: the app's general text/content is center-aligned. This
      used to coincidentally duplicate a leftover Vite template rule in
-     src/index.css (removed -- see PLAN.md #9); stated explicitly here so
+     src/index.css (removed -- see FRTCON_PLAN.md #9); stated explicitly here so
      nothing else depends on that redundancy existing. */
   text-align: center;
 }

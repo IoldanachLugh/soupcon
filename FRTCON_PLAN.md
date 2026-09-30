@@ -1,4 +1,4 @@
-# PLAN.md — Full code review follow-ups
+# FRTCON_PLAN.md — Full code review follow-ups
 
 > **Superseded (2026-09-27):** this document is a historical record of the
 > FRTCON codebase's code review, from before this repo was rebuilt as

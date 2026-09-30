@@ -19,10 +19,10 @@ sources, content, and branding. `frtcon.com` itself is untouched and
 continues to exist separately — this is a new, independent site at
 soupcon.org, not a migration of the old one. The rebuild was done item by
 item against `SOUP_PLAN.md` (a running plan in the same spirit as
-`PLAN.md`, but for this build-out rather than a code review) — read that
+`FRTCON_PLAN.md`, but for this build-out rather than a code review) — read that
 file's "Decisions locked in" section and its per-item "Done:" notes before
 re-touching anything the rebuild already covered, for the same reason
-`PLAN.md`'s own "Done:" notes matter.
+`FRTCON_PLAN.md`'s own "Done:" notes matter.
 
 The owner is primarily a backend developer using this project (both as
 FRTCON and now as this fork) to build frontend and AI-assisted development
