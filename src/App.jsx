@@ -8,7 +8,7 @@ import {
 } from "./lib/weatherApi";
 import { safeGetItem, safeSetItem } from "./lib/cache";
 import { pickRandomItems } from "./lib/soupcon";
-import { lookupWeather, refreshWeather, classifyLookup } from "./lib/weatherProvider";
+import { lookupWeather, refreshWeather, classifyLookup, PROVIDER_NWS } from "./lib/weatherProvider";
 import { soupMessages } from "./data/soupMessages";
 import { RainOverlay } from "./components/RainOverlay";
 import { SnowOverlay } from "./components/SnowOverlay";
@@ -737,9 +737,11 @@ export default function App() {
             <div className="card section-spacing">
               <div className="soupcon-status-row">
                 <SoupconBadge level={soupcon.level} />
-                <span className="alert-tag">
-                  {result.alerts.length} alert{result.alerts.length === 1 ? "" : "s"}
-                </span>
+                {result.provider === PROVIDER_NWS ? (
+                  <span className="alert-tag">
+                    {result.alerts.length} alert{result.alerts.length === 1 ? "" : "s"}
+                  </span>
+                ) : null}
                 <button
                   type="button"
                   className="share-fb-button"
@@ -825,7 +827,11 @@ export default function App() {
                   open question on this, since flood-family alerts are
                   still on-theme for a rain app. */}
               <div className="active-alerts-heading">Active Alerts</div>
-              {result.alerts.length === 0 ? (
+              {/* Open-Meteo (non-US) has no alerts feed, so say so rather than
+                  showing a misleading "0 alerts" / "none active". */}
+              {result.provider !== PROVIDER_NWS ? (
+                <div className="card">Weather alerts are only available for US locations.</div>
+              ) : result.alerts.length === 0 ? (
                 <div className="card">No active alerts were returned for this location.</div>
               ) : (
                 result.alerts.map((feature) => <AlertCard key={feature.id} feature={feature} />)

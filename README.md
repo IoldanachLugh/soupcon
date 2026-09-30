@@ -22,7 +22,8 @@ Live at [soupcon.org](https://soupcon.org).
 - Remembers whichever method (location or ZIP) you used last, and
   automatically re-runs it on your next visit — no need to click a button
   again.
-- Lists every raw active NWS alert covering your location, independent of
+- Lists every raw active NWS alert covering your location (US only; other
+  locations say alerts aren't available), independent of
   the SOUPCON score itself (the score is forecast-based now, not
   alert-based — see "The SOUPCON scale" below).
 - Has a collapsible "Sources" section
