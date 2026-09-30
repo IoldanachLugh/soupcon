@@ -7,8 +7,8 @@ level: a tongue-in-cheek 1-5 scale for "should I make soup and stay home
 today?"
 
 The live app is at <https://soupcon.org/>. It is a client-side web app: the
-forecast lookup runs in the visitor's browser (by browser geolocation or US ZIP
-code), so there is no server-side API to call.
+forecast lookup runs in the visitor's browser (by browser geolocation, US ZIP
+code, or a city search in another country), so there is no server-side API to call.
 
 ## The scale
 

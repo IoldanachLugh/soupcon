@@ -176,8 +176,21 @@ existing origin server rather than standing up anything new:
     lookups).
   - **Terms:** Open-Meteo's free tier is non-commercial. Fine today;
     revisit before adding ads or the affiliate ideas under "Shelved".
-  - **Not supported / out of scope:** non-US ZIP codes (the button says
-    "Search US ZIP"), non-US alerts. The snow code mapping (71-77, 85-86) is
+  - **City search (SOUP_PLAN.md item 24).** A Country dropdown beside the
+    ZIP field (default USA = ZIP as before). Any other country swaps in a
+    city field and "Search city", which calls Open-Meteo's forward geocoding
+    (`placeSearch.js`: `countryCode`-filtered, asks for 20 and keeps up to 8
+    populated places -- GeoNames `PPL*` feature codes -- falling back to all
+    results if none are, so airports/heliports don't crowd the list; one
+    match is used directly, several show a "Which one?" list). Forward
+    geocoding by name has no device-location restriction, unlike the
+    BigDataCloud reverse lookup. The picked place's own name is passed as
+    `label` to `lookupWeather`, so no reverse geocode is needed for it; the
+    pick is saved (`soupcon_last_source=city`, `soupcon_last_place`) and
+    resumed on the next visit from its saved coordinates. A country that NWS
+    covers (Puerto Rico, Guam...) still routes to NWS and keeps NWS's label.
+  - **Not supported / out of scope:** non-US ZIP/postal codes, non-US
+    alerts, and city search for the US (ZIP is the US path). The snow code mapping (71-77, 85-86) is
     unit-tested only; no snow was forecast anywhere when it was built.
 - **Rain vs. snow.** Levels 1-3 don't distinguish rain from snow for the
   *level* itself — a `SNOW_KEYWORDS` list (snow, sleet, ice pellets —
@@ -459,6 +472,13 @@ at soupcon.org:
   made-up coordinates).
 
 ## Deliberately decided against (don't re-litigate without new info)
+
+- **Dropping the high-accuracy geolocation retry.** `handleUseBrowserLocation`
+  tries a low-accuracy fix first, then retries once with high accuracy (GPS)
+  on any failure except permission-denied. Removing the retry (to make a
+  failing lookup report sooner, 15 s instead of 45 s) was tried and reverted:
+  low accuracy doesn't always work, and the retry is what catches those
+  cases. See `SOUP_PLAN.md` item 23.
 
 - **Cloudflare Bot Fight Mode**: left off (carried over from FRTCON). No
   login/payment/auth surface on SOUPCON itself for it to meaningfully

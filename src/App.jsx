@@ -8,6 +8,12 @@ import {
 } from "./lib/weatherApi";
 import { safeGetItem, safeSetItem } from "./lib/cache";
 import { pickRandomItems } from "./lib/soupcon";
+import {
+  geolocationErrorMessage,
+  ZIP_FALLBACK_HINT,
+  GEOLOCATION_FAST_TIMEOUT_MS,
+  GEOLOCATION_PRECISE_TIMEOUT_MS,
+} from "./lib/geolocationError";
 import { lookupWeather, refreshWeather, classifyLookup, PROVIDER_NWS } from "./lib/weatherProvider";
 import { soupMessages } from "./data/soupMessages";
 import { RainOverlay } from "./components/RainOverlay";
@@ -22,6 +28,13 @@ import { POTSTICKER_SOUP } from "./data/recipes/potstickerSoup";
 import { SENEGALESE_CHICKEN_SOUP } from "./data/recipes/senegaleseChickenSoup";
 import { LASAGNA_SOUP } from "./data/recipes/lasagnaSoup";
 import { pickSoupOfTheDay } from "./lib/soupOfTheDay";
+import {
+  getCountryOptions,
+  countryName,
+  searchPlaces,
+  DEFAULT_COUNTRY,
+  MIN_PLACE_QUERY_LENGTH,
+} from "./lib/placeSearch";
 
 // All recipes currently available, for the "soup of the day" picker below
 // -- a new recipe file needs adding here too, alongside its menu item.
@@ -45,6 +58,14 @@ const URL_LOCATION = readUrlLocation();
 
 export default function App() {
   const [zip, setZip] = useState("");
+  // The Country dropdown: the US (default) looks up by ZIP; any other
+  // country swaps the ZIP field for a city-name search within that country.
+  const [country, setCountry] = useState(DEFAULT_COUNTRY);
+  const [city, setCity] = useState("");
+  // Matches shown for the visitor to pick from when a city search finds more
+  // than one place.
+  const [placeChoices, setPlaceChoices] = useState([]);
+  const countryOptions = useMemo(() => getCountryOptions(), []);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
@@ -248,7 +269,7 @@ export default function App() {
   // create-a-new-one behavior, which is still what actually cancels a
   // concurrent ZIP lookup if the user switches methods mid-request.
   const runLookupFromCoordinates = useCallback(
-    async (lat, lon, inputSource, { skipCache = false, controller: existingController } = {}) => {
+    async (lat, lon, inputSource, { skipCache = false, label, controller: existingController } = {}) => {
       let controller = existingController;
       if (!controller) {
         // Cancel any lookup still in flight so its result can't clobber this one.
@@ -266,7 +287,7 @@ export default function App() {
       try {
         // NWS for US points, Open-Meteo everywhere else -- see
         // lib/weatherProvider.js for the routing and the result shapes.
-        const lookup = await lookupWeather(lat, lon, { signal, skipCache, source: inputSource });
+        const lookup = await lookupWeather(lat, lon, { signal, skipCache, source: inputSource, label });
 
         if (signal.aborted) return false;
 
@@ -372,7 +393,7 @@ export default function App() {
 
     if (!navigator.geolocation) {
       setStatusMessage("");
-      setError("This browser does not support geolocation. Try entering a US ZIP code.");
+      setError(`This browser does not support geolocation. ${ZIP_FALLBACK_HINT}`);
       return;
     }
 
@@ -398,18 +419,12 @@ export default function App() {
       setLoading(false);
       setStatusMessage("");
 
-      if (geoError?.code === geoError?.PERMISSION_DENIED) {
-        setError(
-          "Location access is turned off for this site. On iPhone: tap the \"Aa\" icon in the address bar, " +
-            "Website Settings, and set Location to Ask or Allow, then try again — or just enter a US ZIP code below."
-        );
-        return;
-      }
-
-      const message = geoError?.message || "Unable to read browser location.";
-      setError(`${message} Try entering a US ZIP code instead.`);
+      setError(geolocationErrorMessage(geoError));
     };
 
+    // Low accuracy first (fast, and plenty for a forecast), but it doesn't
+    // always work, so any failure other than a permission denial gets one
+    // high-accuracy retry. Deliberately kept -- see SOUP_PLAN.md item 23.
     navigator.geolocation.getCurrentPosition(
       onSuccess,
       (geoError) => {
@@ -427,13 +442,13 @@ export default function App() {
         setStatusMessage("Still locating you... trying a more precise lookup.");
         navigator.geolocation.getCurrentPosition(onSuccess, onFinalError, {
           enableHighAccuracy: true,
-          timeout: 30000,
+          timeout: GEOLOCATION_PRECISE_TIMEOUT_MS,
           maximumAge: 0,
         });
       },
       {
         enableHighAccuracy: false,
-        timeout: 15000,
+        timeout: GEOLOCATION_FAST_TIMEOUT_MS,
         maximumAge: 600000,
       }
     );
@@ -546,12 +561,108 @@ export default function App() {
     [runLookupFromCoordinates]
   );
 
-  async function handleZipLookup(event) {
-    event.preventDefault();
-    setSource("zip");
+  // Looks up a place chosen from a city search (only one match, or the
+  // visitor's pick from several). `place.label` is the name from the search,
+  // used as the displayed place name for non-US results. Remembered for the
+  // next visit only once it has worked, like ZIP and browser lookups.
+  const lookupPlace = useCallback(
+    async (place, { controller } = {}) => {
+      const succeeded = await runLookupFromCoordinates(place.lat, place.lon, "city", {
+        controller,
+        label: place.label,
+      });
+      if (succeeded) {
+        safeSetItem(
+          "soupcon_last_place",
+          JSON.stringify({ lat: place.lat, lon: place.lon, label: place.label, country: place.country, query: place.query })
+        );
+        safeSetItem("soupcon_last_source", "city");
+      }
+    },
+    [runLookupFromCoordinates]
+  );
+
+  const performCitySearch = useCallback(
+    async (query, countryCode) => {
+      if (query.trim().length < MIN_PLACE_QUERY_LENGTH) {
+        setError(`Enter at least ${MIN_PLACE_QUERY_LENGTH} letters of a city name.`);
+        return;
+      }
+
+      // Same stale-request guards as performZipLookup.
+      const mySeq = ++requestSeqRef.current;
+      if (activeRequestRef.current) {
+        activeRequestRef.current.abort();
+      }
+      const controller = new AbortController();
+      activeRequestRef.current = controller;
+      const { signal } = controller;
+
+      setLoading(true);
+      setPlaceChoices([]);
+
+      try {
+        const found = await searchPlaces(query, countryCode, { signal });
+        if (signal.aborted || mySeq !== requestSeqRef.current) return;
+
+        const places = found.map((place) => ({ ...place, country: countryCode, query: query.trim() }));
+
+        if (places.length === 0) {
+          setLoading(false);
+          setResult(null);
+          setStatusMessage("");
+          setError(
+            `We couldn't find "${query.trim()}" in ${countryName(countryCode)}. Check the spelling, or try a larger nearby city.`
+          );
+          return;
+        }
+
+        if (places.length === 1) {
+          await lookupPlace(places[0], { controller });
+          return;
+        }
+
+        // Several matches (e.g. a city and its airport): let the visitor pick.
+        setLoading(false);
+        setPlaceChoices(places);
+      } catch (err) {
+        if (signal.aborted || mySeq !== requestSeqRef.current) return;
+        setLoading(false);
+        setResult(null);
+        setStatusMessage("");
+        setError(err instanceof Error ? err.message : "City search failed.");
+      }
+    },
+    [lookupPlace]
+  );
+
+  function handlePickPlace(place) {
+    setPlaceChoices([]);
     setError("");
     setStatusMessage("");
-    await performZipLookup(zip);
+    setSource("city");
+    requestSeqRef.current += 1; // supersede any geolocation still pending
+    lookupPlace(place);
+  }
+
+  function handleCountryChange(event) {
+    setCountry(event.target.value);
+    setPlaceChoices([]);
+    setError("");
+  }
+
+  async function handleSearchSubmit(event) {
+    event.preventDefault();
+    setError("");
+    setStatusMessage("");
+    setPlaceChoices([]);
+    if (country === DEFAULT_COUNTRY) {
+      setSource("zip");
+      await performZipLookup(zip);
+    } else {
+      setSource("city");
+      await performCitySearch(city, country);
+    }
   }
 
   // On load, silently resume whichever method the visitor used last time,
@@ -596,6 +707,27 @@ export default function App() {
     } else if (savedSource === "zip" && savedZip && isValidZip(savedZip)) {
       setSource("zip");
       performZipLookup(savedZip);
+    } else if (savedSource === "city") {
+      // The last city-search pick: resume it directly from its saved
+      // coordinates and name rather than searching again.
+      let place = null;
+      try {
+        place = JSON.parse(safeGetItem("soupcon_last_place"));
+      } catch {
+        // Corrupt or missing -- just start empty.
+      }
+      if (
+        place &&
+        Number.isFinite(place.lat) &&
+        Number.isFinite(place.lon) &&
+        typeof place.label === "string" &&
+        countryOptions.some((option) => option.code === place.country)
+      ) {
+        setCountry(place.country);
+        setCity(typeof place.query === "string" ? place.query : "");
+        setSource("city");
+        runLookupFromCoordinates(place.lat, place.lon, "city", { label: place.label });
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -703,22 +835,58 @@ export default function App() {
               {loading && source === "browser" ? "Looking up..." : "Use Browser Location"}
             </button>
 
-            <form onSubmit={handleZipLookup} className="button-row">
-              <label htmlFor="soupcon-zip-input" className="visually-hidden-label">
-                US ZIP code
+            <form onSubmit={handleSearchSubmit} className="button-row">
+              {country === DEFAULT_COUNTRY ? (
+                <>
+                  <label htmlFor="soupcon-zip-input" className="visually-hidden-label">
+                    US ZIP code
+                  </label>
+                  <input
+                    id="soupcon-zip-input"
+                    className="zip-input"
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="Enter US ZIP code"
+                    aria-label="US ZIP code"
+                    value={zip}
+                    onChange={(e) => setZip(e.target.value.replace(/\D/g, "").slice(0, 5))}
+                  />
+                </>
+              ) : (
+                <>
+                  <label htmlFor="soupcon-city-input" className="visually-hidden-label">
+                    City
+                  </label>
+                  <input
+                    id="soupcon-city-input"
+                    className="zip-input"
+                    type="text"
+                    placeholder="Enter city"
+                    aria-label="City"
+                    autoComplete="off"
+                    value={city}
+                    onChange={(e) => setCity(e.target.value)}
+                  />
+                </>
+              )}
+              <label className="country-field">
+                <span className="country-label">Country</span>
+                <select className="country-select" value={country} onChange={handleCountryChange}>
+                  {countryOptions.map((option) => (
+                    <option key={option.code} value={option.code}>
+                      {option.name}
+                    </option>
+                  ))}
+                </select>
               </label>
-              <input
-                id="soupcon-zip-input"
-                className="zip-input"
-                type="text"
-                inputMode="numeric"
-                placeholder="Enter US ZIP code"
-                aria-label="US ZIP code"
-                value={zip}
-                onChange={(e) => setZip(e.target.value.replace(/\D/g, "").slice(0, 5))}
-              />
               <button className="btn-secondary" type="submit" disabled={loading}>
-                {loading && source === "zip" ? "Looking up..." : "Search US ZIP"}
+                {country === DEFAULT_COUNTRY
+                  ? loading && source === "zip"
+                    ? "Looking up..."
+                    : "Search US ZIP"
+                  : loading && source === "city"
+                    ? "Looking up..."
+                    : "Search city"}
               </button>
               {source === "url" && URL_LOCATION ? (
                 <span className="custom-location-note">
@@ -727,6 +895,22 @@ export default function App() {
               ) : null}
             </form>
           </div>
+
+          {placeChoices.length > 0 ? (
+            <div className="place-choices" role="group" aria-label="Matching places">
+              <div className="place-choices-title">Which one?</div>
+              {placeChoices.map((place) => (
+                <button
+                  key={`${place.lat},${place.lon},${place.label}`}
+                  type="button"
+                  className="btn-secondary place-choice"
+                  onClick={() => handlePickPlace(place)}
+                >
+                  {place.label}
+                </button>
+              ))}
+            </div>
+          ) : null}
 
           {statusMessage ? <div className="status-box">{statusMessage}</div> : null}
           {error ? <div className="error-box">{error}</div> : null}

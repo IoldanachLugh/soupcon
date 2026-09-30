@@ -105,6 +105,13 @@ describe("Open-Meteo place name", () => {
     expect(called(calls, "bigdatacloud")).toBe(false);
   });
 
+  it("uses a name the caller already has, without calling the geocoder, even for a browser source", async () => {
+    const calls = stub({ points: 404 });
+    const result = await lookupWeather(46.7667, 23.6, { source: "city", label: "Cluj-Napoca, Cluj County, Romania" });
+    expect(result.locationLabel).toBe("Cluj-Napoca, Cluj County, Romania");
+    expect(called(calls, "bigdatacloud")).toBe(false);
+  });
+
   it("shows coordinates when the geocoder fails", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     stub({ points: 404, geocoder: () => fail(402) });

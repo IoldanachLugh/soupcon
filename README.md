@@ -13,8 +13,9 @@ Live at [soupcon.org](https://soupcon.org).
   current conditions for your location, either via browser geolocation or a
   manually entered US ZIP code. Outside the US (where NWS has no data) it
   uses Open-Meteo's worldwide forecast instead, reached through browser
-  geolocation or the `lat`/`lon` URL parameters (see "Worldwide lookups"
-  below).
+  geolocation, a city search (choose a country in the **Country** dropdown,
+  next to the ZIP field, and the ZIP field becomes a city field), or the
+  `lat`/`lon` URL parameters (see "Worldwide lookups" below).
 - Accepts optional `lat` and `lon` URL parameters (e.g.
   `https://soupcon.org/?lat=47.6062&lon=-122.3321`) to load a specific
   location on page load. Both are required and must be in range, otherwise
@@ -143,7 +144,14 @@ switching data source. See `src/lib/weatherProvider.js`.
   geocoder *only* for a browser-geolocation lookup; `?lat=&lon=` coordinates
   show as "Lat 51.51, Lon -0.13" (its Fair Use Policy allows only the
   device's own location).
-- Non-US ZIP/postal codes are not supported ("Search US ZIP").
+- **City search**: the Country dropdown defaults to USA (ZIP lookup, the
+  "Search US ZIP" button). Choosing any other country swaps the ZIP field for
+  a city field and the button for "Search city", which searches Open-Meteo's
+  geocoding API within that country (populated places only, up to 8). One
+  match is looked up directly; several are shown as a "Which one?" list. The
+  matched place's name ("Cluj-Napoca, Cluj County, Romania") is used as the
+  label, and the last pick is remembered like a ZIP. Non-US ZIP/postal codes
+  are not supported.
 
 ## Tech stack
 
@@ -168,6 +176,10 @@ src/
                                 (classifyOpenMeteo)
     reverseGeocode.js        — place names for non-US lookups (BigDataCloud,
                                 browser-geolocation only)
+    placeSearch.js           — Country dropdown options and Open-Meteo city-name
+                                search (searchPlaces)
+    geolocationError.js      — plain-language browser-geolocation errors and
+                                the lookup timeouts
     weatherProvider.js       — picks NWS (US) or Open-Meteo (elsewhere) per lookup:
                                 lookupWeather, refreshWeather, classifyLookup
     openMeteoApi.js          — Open-Meteo fetch layer (non-US fallback,
@@ -184,6 +196,7 @@ src/
                                 recipe until local midnight
     soupOfTheDay.test.js       — vitest suite for the above
   data/
+    countryCodes.js            — ISO country codes for the Country dropdown
     soupMessages.js            — the SOUPCON 1–5 headline/title/commentary content
     recipes/
       potstickerSoup.js         — one recipe per file, each imported and
@@ -278,6 +291,9 @@ in place for full functionality:
 - **[api.open-meteo.com](https://open-meteo.com/)** — current, hourly and
   daily forecast for points outside NWS coverage. No API key required; the
   free tier is for non-commercial use.
+- **[geocoding-api.open-meteo.com](https://open-meteo.com/en/docs/geocoding-api)**
+  — city-name search within a country (the non-US equivalent of the ZIP
+  lookup). No API key; same non-commercial terms as the forecast API.
 - **[api.bigdatacloud.net](https://www.bigdatacloud.com/free-api/free-reverse-geocode-to-city-api)**
   — reverse geocoding (coordinates → place name) for non-US
   browser-geolocation lookups. No API key; client-side only, device location

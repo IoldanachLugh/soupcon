@@ -50,20 +50,23 @@ async function openMeteoLabel(lat, lon, { signal, source, geocodeWaitMs }) {
   return coordinatesLabel(lat, lon);
 }
 
-async function lookupOpenMeteo(lat, lon, { signal, skipCache, source, geocodeWaitMs }) {
+async function lookupOpenMeteo(lat, lon, { signal, skipCache, source, geocodeWaitMs, label }) {
   const [raw, locationLabel] = await Promise.all([
     getOpenMeteoForecast(lat, lon, { signal, skipCache }),
-    openMeteoLabel(lat, lon, { signal, source, geocodeWaitMs }),
+    // A name the caller already has (a city-search pick) needs no lookup.
+    label ?? openMeteoLabel(lat, lon, { signal, source, geocodeWaitMs }),
   ]);
   return { provider: PROVIDER_OPEN_METEO, locationLabel, openMeteo: normalizeOpenMeteo(raw), alerts: [] };
 }
 
-// `source` is how the coordinates were obtained ("browser", "zip" or "url");
-// it only matters for the Open-Meteo place name.
+// `source` is how the coordinates were obtained ("browser", "zip", "url" or
+// "city"); it only matters for the Open-Meteo place name. `label`, when the
+// caller already knows the place's name (a city-search pick), is used as the
+// Open-Meteo place name as-is; NWS lookups keep NWS's own city/state label.
 export async function lookupWeather(
   lat,
   lon,
-  { signal, skipCache = false, source, geocodeWaitMs = GEOCODE_WAIT_MS } = {}
+  { signal, skipCache = false, source, label, geocodeWaitMs = GEOCODE_WAIT_MS } = {}
 ) {
   let locationLabel;
   try {
@@ -73,7 +76,7 @@ export async function lookupWeather(
     locationLabel = await getLocationLabel(lat, lon, { signal });
   } catch (err) {
     if (err instanceof OutsideNwsCoverageError) {
-      return lookupOpenMeteo(lat, lon, { signal, skipCache, source, geocodeWaitMs });
+      return lookupOpenMeteo(lat, lon, { signal, skipCache, source, geocodeWaitMs, label });
     }
     throw err;
   }

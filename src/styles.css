@@ -331,6 +331,45 @@ div[role="dialog"] {
   font-size: 14px;
 }
 
+/* "Country" dropdown beside the ZIP/city field, styled like the text input. */
+.country-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.country-label {
+  color: #e5d9f5;
+  font-size: 14px;
+}
+
+.country-select {
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid #6d54a0;
+  background: #251542;
+  color: #ffffff;
+  font-size: 15px;
+  max-width: 200px;
+}
+
+/* Matches shown when a city search finds more than one place. */
+.place-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.place-choices-title {
+  color: #e5d9f5;
+  font-size: 14px;
+}
+
+.place-choice {
+  text-align: left;
+}
+
 .visually-hidden-label {
   position: absolute;
   left: -9999px;
