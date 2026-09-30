@@ -59,7 +59,7 @@ export function OpenMeteoSources({ forecast }) {
     <div className="nws-alert-card">
       <h3 className="station-debug-header">Current conditions (model estimate)</h3>
       <p className="nws-alert-area-desc">
-        There are no weather stations outside the US; Open-Meteo's own estimate wins level 1. Used for level 1:{" "}
+        Outside the US there are no station readings; Open-Meteo's own model estimate decides level 1. Used for level 1:{" "}
         <strong>
           {current?.label ?? "(none)"} ({currentType || "no precip"})
         </strong>

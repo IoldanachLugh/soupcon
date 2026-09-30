@@ -23,7 +23,7 @@ Live at [soupcon.org](https://soupcon.org).
   and a URL-driven lookup is not saved as the "last used" method.
 - Classifies that data into a 5-level SOUPCON scale (see below), with a
   randomized bit of commentary per level.
-- Remembers whichever method (location or ZIP) you used last, and
+- Remembers whichever method (location, ZIP, or city search) you used last, and
   automatically re-runs it on your next visit — no need to click a button
   again.
 - Lists every raw active NWS alert covering your location (US only; the
@@ -48,7 +48,8 @@ Live at [soupcon.org](https://soupcon.org).
   the text goes via clipboard; the link card comes from the `u` param.
 - Shows a "Soup of the day" pill ("Lets make {recipe title}!") next to the
   Share button — one recipe chosen at random per local calendar day (cached
-  in `localStorage` until local midnight, then re-rolled on the next visit;
+  in `localStorage` until local midnight, then re-rolled — at midnight if
+  the app is open, otherwise on the next visit;
   see `src/lib/soupOfTheDay.js`), opening that recipe's modal on click.
 - Shows a "Snow soon, check your FRTCON!" pill ("Snow! Check FRTCON!"
   when it's already snowing) next to the Share button whenever

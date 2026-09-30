@@ -27,4 +27,6 @@ always wins over rain later, which wins over no rain expected at all.
 
 - [api.weather.gov](https://www.weather.gov/documentation/services-web-api) — hourly forecast, extended forecast, and current observations
 - [api.open-meteo.com](https://open-meteo.com/) — forecast for locations outside NWS coverage
+- [geocoding-api.open-meteo.com](https://open-meteo.com/en/docs/geocoding-api) — city search outside the US
+- [api.bigdatacloud.net](https://www.bigdatacloud.com/) — place name for a non-US browser-location lookup
 - [api.zippopotam.us](https://www.zippopotam.us/) — ZIP code to coordinates

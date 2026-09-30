@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { pickSoupOfTheDay } from "./soupOfTheDay";
+import { pickSoupOfTheDay, msUntilLocalMidnight } from "./soupOfTheDay";
 
 // Real localStorage isn't available under vitest's default (node)
 // environment -- see the note in weatherApi.test.js. pickSoupOfTheDay's
@@ -81,5 +81,18 @@ describe("pickSoupOfTheDay", () => {
     });
     const result = pickSoupOfTheDay([RECIPE_A, RECIPE_B], { random: () => 0 });
     expect(result).toBe(RECIPE_A);
+  });
+});
+
+describe("msUntilLocalMidnight", () => {
+  it("counts down to the next local midnight", () => {
+    expect(msUntilLocalMidnight(new Date(2026, 8, 28, 23, 59, 0))).toBe(60 * 1000);
+    expect(msUntilLocalMidnight(new Date(2026, 8, 28, 0, 0, 0))).toBe(24 * 60 * 60 * 1000);
+  });
+
+  it("lands on the next calendar day, even across a month end", () => {
+    const now = new Date(2026, 8, 30, 12, 0, 0);
+    const midnight = new Date(now.getTime() + msUntilLocalMidnight(now));
+    expect([midnight.getMonth(), midnight.getDate(), midnight.getHours(), midnight.getMinutes()]).toEqual([9, 1, 0, 0]);
   });
 });

@@ -50,9 +50,9 @@ async function openMeteoLabel(lat, lon, { signal, source, geocodeWaitMs }) {
   return coordinatesLabel(lat, lon);
 }
 
-async function lookupOpenMeteo(lat, lon, { signal, skipCache, source, geocodeWaitMs, label }) {
+async function lookupOpenMeteo(lat, lon, { signal, source, geocodeWaitMs, label }) {
   const [raw, locationLabel] = await Promise.all([
-    getOpenMeteoForecast(lat, lon, { signal, skipCache }),
+    getOpenMeteoForecast(lat, lon, { signal }),
     // A name the caller already has (a city-search pick) needs no lookup.
     label ?? openMeteoLabel(lat, lon, { signal, source, geocodeWaitMs }),
   ]);
@@ -66,7 +66,7 @@ async function lookupOpenMeteo(lat, lon, { signal, skipCache, source, geocodeWai
 export async function lookupWeather(
   lat,
   lon,
-  { signal, skipCache = false, source, label, geocodeWaitMs = GEOCODE_WAIT_MS } = {}
+  { signal, source, label, geocodeWaitMs = GEOCODE_WAIT_MS } = {}
 ) {
   let locationLabel;
   try {
@@ -76,7 +76,7 @@ export async function lookupWeather(
     locationLabel = await getLocationLabel(lat, lon, { signal });
   } catch (err) {
     if (err instanceof OutsideNwsCoverageError) {
-      return lookupOpenMeteo(lat, lon, { signal, skipCache, source, geocodeWaitMs, label });
+      return lookupOpenMeteo(lat, lon, { signal, source, geocodeWaitMs, label });
     }
     throw err;
   }
@@ -89,7 +89,7 @@ export async function lookupWeather(
     getHourlyForecast(lat, lon, { signal }),
     getExtendedForecast(lat, lon, { signal }),
     getCurrentConditions(lat, lon, { signal }),
-    getActiveAlertsByPoint(lat, lon, { signal, skipCache }),
+    getActiveAlertsByPoint(lat, lon, { signal }),
   ]);
   return { provider: PROVIDER_NWS, locationLabel, hourlyPeriods, extendedPeriods, observation, alerts };
 }

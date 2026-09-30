@@ -241,12 +241,14 @@ existing origin server rather than standing up anything new:
   `getHourlyForecast`, `getExtendedForecast`, and `getCurrentConditions`
   all need the same NWS `/points/{lat},{lon}` response (grid office/x/y,
   the two forecast URLs, the observation-stations URL, and the location
-  label). `App.jsx` calls all four concurrently for a single lookup, so
-  a private `getGridpointInfo` in `weatherApi.js` both caches that
+  label). A private `getGridpointInfo` in `weatherApi.js` both caches that
   response (TTL-based, like everything else in `cache.js`) and
   deduplicates concurrent in-flight requests for the same location via an
-  in-memory `Map` of pending promises — otherwise a cold-cache lookup
-  would fire 4 near-simultaneous requests for the exact same URL. The
+  in-memory `Map` of pending promises. Since item 22, `lookupWeather`
+  awaits `getLocationLabel` first (it doubles as the NWS coverage probe)
+  and only then starts the other three, so a normal lookup mostly hits the
+  cache; the de-dup still matters for `refreshWeather`, the Sources panel,
+  and when `localStorage` is blocked (no cache at all). The
   shared request runs on its first caller's `AbortSignal`, so an entry
   whose signal is already aborted is never joined — a new lookup for the
   same location starts its own request instead of inheriting the
@@ -287,9 +289,10 @@ existing origin server rather than standing up anything new:
   than spinning forever on a real outage/airplane-mode; see `public/sw.js`
   for the retry/give-up logic.
 - The app auto-resumes a returning visitor's last-used lookup method
-  (browser geolocation vs. ZIP) on load, tracked via a
+  (browser geolocation, ZIP, or a city-search pick) on load, tracked via a
   `soupcon_last_source` localStorage key — but that key (and
-  `soupcon_last_zip`) is only written once a lookup actually succeeds, and
+  `soupcon_last_zip`/`soupcon_last_place`) is only written once a lookup
+  actually succeeds, `?lat=&lon=` URL lookups never write it, and
   the silent auto-resume is skipped entirely if
   `navigator.permissions` reports geolocation as `denied`. (This behavior,
   and the reasoning behind it, carried over unchanged from FRTCON.)
@@ -337,7 +340,11 @@ existing origin server rather than standing up anything new:
   TTL — deliberately not built on `cache.js`'s `getCacheItem`/
   `setCacheItem` (duration-since-write), since the ask was specifically
   "cache until midnight local time," which needs a date-string comparison
-  instead. Picks from a small `ALL_RECIPES` array in `App.jsx` (currently
+  instead. The pick also expires while the app is left open: `App.jsx`
+  re-picks on a timer set for local midnight and on every return to
+  visibility (timers freeze in background tabs/suspended PWAs); a same-day
+  re-check returns the cached pick, so it never changes mid-day.
+  Picks from a small `ALL_RECIPES` array in `App.jsx` (currently
   the imported recipe objects, one per file) rather than scanning
   `src/data/recipes/` at build/runtime — adding a recipe still means
   adding it to this array by hand, the same manual step item 18 already

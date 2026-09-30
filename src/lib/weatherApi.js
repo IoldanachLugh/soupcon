@@ -200,9 +200,11 @@ export async function getActiveAlertsByPoint(lat, lon, { signal, skipCache = fal
 // carries the grid office/x/y used to build both forecast URLs, the
 // observation stations URL, and the location label), so this fetches and
 // caches it once instead of each hitting /points separately for the same
-// location. App.jsx's runLookupFromCoordinates calls all four in parallel
-// via Promise.all with a shared AbortSignal, so on a cold cache they'd
-// otherwise all race to fetch the exact same /points URL at once --
+// location. weatherProvider.js's lookupWeather awaits getLocationLabel first
+// (it's the coverage probe), so a normal lookup usually finds this cached;
+// but refreshWeather and the Sources panel call the others concurrently,
+// and on a cold cache (or with localStorage blocked) they'd otherwise all
+// race to fetch the exact same /points URL at once --
 // gridpointRequestsInFlight collapses that into a single request, with
 // later callers awaiting the first one's in-flight promise instead of
 // starting their own. The shared request runs on its *first* caller's

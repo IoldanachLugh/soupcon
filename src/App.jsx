@@ -27,7 +27,7 @@ import { IOSInstallHelp } from "./components/IOSInstallHelp";
 import { POTSTICKER_SOUP } from "./data/recipes/potstickerSoup";
 import { SENEGALESE_CHICKEN_SOUP } from "./data/recipes/senegaleseChickenSoup";
 import { LASAGNA_SOUP } from "./data/recipes/lasagnaSoup";
-import { pickSoupOfTheDay } from "./lib/soupOfTheDay";
+import { pickSoupOfTheDay, msUntilLocalMidnight } from "./lib/soupOfTheDay";
 import {
   getCountryOptions,
   countryName,
@@ -72,9 +72,9 @@ export default function App() {
   const [source, setSource] = useState("browser");
   const [result, setResult] = useState(null);
   const [openRecipe, setOpenRecipe] = useState(null);
-  // Lazy initializer so this is picked (and, on a new day, re-picked) once
-  // on mount, with no flash of a missing pill on first render.
-  const [soupOfTheDay] = useState(() => pickSoupOfTheDay(ALL_RECIPES));
+  // Lazy initializer so there's no flash of a missing pill on first render;
+  // the effect below re-picks at local midnight while the app stays open.
+  const [soupOfTheDay, setSoupOfTheDay] = useState(() => pickSoupOfTheDay(ALL_RECIPES));
   const [menuOpen, setMenuOpen] = useState(false);
   const [iosHelpOpen, setIosHelpOpen] = useState(false);
   const [installPromptEvent, setInstallPromptEvent] = useState(null);
@@ -132,6 +132,37 @@ export default function App() {
         // installable from Chrome's own in-app menu item in that case.
       });
     }
+  }, []);
+
+  // The soup of the day expires at local midnight even if the app is left
+  // open (e.g. an installed PWA that's never reloaded). A timer re-picks at
+  // midnight; since background tabs and suspended PWAs can freeze that
+  // timer, becoming visible again also re-checks. pickSoupOfTheDay returns
+  // the cached pick on the same day, so re-checking is cheap and never
+  // changes the soup mid-day.
+  useEffect(() => {
+    let timeoutId;
+    const refresh = () => setSoupOfTheDay(pickSoupOfTheDay(ALL_RECIPES));
+    const scheduleMidnight = () => {
+      // +1 s so the timer lands just after the date has flipped.
+      timeoutId = setTimeout(() => {
+        refresh();
+        scheduleMidnight();
+      }, msUntilLocalMidnight() + 1000);
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState !== "visible") return;
+      refresh();
+      clearTimeout(timeoutId);
+      scheduleMidnight();
+    };
+
+    scheduleMidnight();
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      clearTimeout(timeoutId);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
   }, []);
 
   const handleInstallClick = async () => {
@@ -269,7 +300,7 @@ export default function App() {
   // create-a-new-one behavior, which is still what actually cancels a
   // concurrent ZIP lookup if the user switches methods mid-request.
   const runLookupFromCoordinates = useCallback(
-    async (lat, lon, inputSource, { skipCache = false, label, controller: existingController } = {}) => {
+    async (lat, lon, inputSource, { label, controller: existingController } = {}) => {
       let controller = existingController;
       if (!controller) {
         // Cancel any lookup still in flight so its result can't clobber this one.
@@ -287,7 +318,7 @@ export default function App() {
       try {
         // NWS for US points, Open-Meteo everywhere else -- see
         // lib/weatherProvider.js for the routing and the result shapes.
-        const lookup = await lookupWeather(lat, lon, { signal, skipCache, source: inputSource, label });
+        const lookup = await lookupWeather(lat, lon, { signal, source: inputSource, label });
 
         if (signal.aborted) return false;
 
@@ -382,6 +413,7 @@ export default function App() {
 
   function handleUseBrowserLocation() {
     setSource("browser");
+    setPlaceChoices([]);
     setError("");
     setStatusMessage("Locating you... this can take a few seconds.");
 
@@ -896,7 +928,10 @@ export default function App() {
             </form>
           </div>
 
-          {placeChoices.length > 0 ? (
+          {/* A search still in flight when the Country dropdown changed can
+              land its matches afterwards; only show them for the country
+              they were searched in. */}
+          {placeChoices.length > 0 && placeChoices[0].country === country ? (
             <div className="place-choices" role="group" aria-label="Matching places">
               <div className="place-choices-title">Which one?</div>
               {placeChoices.map((place) => (

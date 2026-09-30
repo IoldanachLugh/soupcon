@@ -11,6 +11,13 @@ function localDateString(now) {
   return `${year}-${month}-${day}`;
 }
 
+// Milliseconds from `now` until the next local midnight. Built from the
+// calendar date (not now + 24h) so a DST change doesn't shift it by an hour.
+export function msUntilLocalMidnight(now = new Date()) {
+  const nextMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+  return nextMidnight.getTime() - now.getTime();
+}
+
 export function pickSoupOfTheDay(recipes, { now = new Date(), random = Math.random } = {}) {
   if (!recipes || recipes.length === 0) return null;
 

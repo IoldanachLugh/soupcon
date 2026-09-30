@@ -313,6 +313,7 @@ Supersedes the "rotating soup recipes" deferral in item 4 with a concrete shape,
   - **Tests:** new `src/lib/soupOfTheDay.test.js` (6 tests) — empty/null recipe list, injected-random selection, same-day caching (a second call with a different random draw and a later same-day timestamp still returns the first pick, and the second random function is never even invoked), a fresh pick once local midnight has passed, a stale cached title (recipe removed) falling back to a fresh pick, and a thrown `localStorage` access still returning a pick. Stubs a working in-memory `localStorage` for these tests specifically (real `localStorage` isn't available under vitest's default node environment — see `weatherApi.test.js`'s note — so this is the first test file in the project to actually exercise real caching behavior rather than treating every cache read as a miss).
   - `npm run lint`, `npm run test` (57/57, up from 51), `npm run build` all pass. **Verified live** in headless Chrome against a `vite preview` build with a real ZIP lookup (Seattle): pill renders in the right position with the exact label text, clicking it opens the matching recipe's modal, and the pick is written to `localStorage` and still matches after a full page reload (same local day). Debugging note for next time: setting `<input>.value` directly and dispatching a plain `input` event does **not** update a React controlled input in this app — needs the native `HTMLInputElement.prototype.value` setter called via `.call()` first, then the `input` event, or React's own change handler never fires (confirmed by comparing a script that hung with one that didn't).
   - **Not tested:** the actual local-midnight rollover in a real browser session (would require leaving a tab open across midnight, or manipulating system clock) — covered instead by the injectable-`now` unit tests above, same tradeoff `classifySoupcon`'s own "ended forecast periods" tests made.
+- **Follow-up (per owner, 2026-09-30, found in item 25): "soup of the day should expire at midnight regardless of whether the app is left open."** It was picked only on mount, so a tab or installed PWA left open kept yesterday's soup. `App.jsx` now re-picks on a timer set for the next local midnight (+1 s so the date has flipped), re-arming itself each day, and also re-checks whenever the page becomes visible again, since background tabs and suspended PWAs can freeze the timer. Re-checking mid-day is harmless: `pickSoupOfTheDay` returns the same cached recipe object for the same date, so nothing changes until the date does. New exported `msUntilLocalMidnight(now)` in `soupOfTheDay.js` builds the next midnight from the calendar date (not now + 24 h, so a DST change can't shift it an hour); 2 new tests (145/145). Lint and build pass. **Not verified in a browser** (the rollover itself would need a clock change or an overnight wait; the timing math is unit-tested).
 
 ### 20. "Sources" panel (was `?stations=1` debug panel) — ✅ FIXED
 
@@ -333,9 +334,9 @@ Supersedes the "rotating soup recipes" deferral in item 4 with a concrete shape,
   - **Follow-up (per owner):** while the URL location is what's being used (`source === "url"`, i.e. until the visitor runs a ZIP/browser lookup), "Using Lat: {lat} Lon: {lon}" shows to the right of the Search ZIP button (`.custom-location-note`), so it's visible the parameters were accepted.
   - `README.md` updated. Not verified in a browser (lint/tests/build only).
 
-### 22. Worldwide weather via Open-Meteo (non-US locations)
+### 22. Worldwide weather via Open-Meteo (non-US locations) — ✅ FIXED
 
-Raised as a question after item 21 ("is there another world weather service we can query for weather outside the US"). **Plan only, nothing built yet.** NWS (`api.weather.gov`) covers US points only, so a `lat`/`lon` outside the US currently just surfaces NWS's lookup error.
+Raised as a question after item 21 ("is there another world weather service we can query for weather outside the US"). Written as a plan first, then built step by step (each step's **Done:** note below). Before this item, NWS (`api.weather.gov`) covered US points only, so a `lat`/`lon` outside the US just surfaced NWS's lookup error.
 
 - **Decision (proposed):** keep NWS for US coordinates (unchanged behavior, including alerts and station observations) and fall back to **Open-Meteo** (`api.open-meteo.com`) for everything else. Chosen because it needs no API key or backend (matches the "no secrets, fully static" constraint), has CORS enabled, and covers the world. Alternatives considered and not chosen: MET Norway (requires an identifying `User-Agent`, the same browser problem as NWS — see `CONTEXT.md`), and OpenWeatherMap/WeatherAPI/Tomorrow.io/Visual Crossing (all need an API key, which would be exposed client-side without a proxy).
 - **Terms check before shipping:** Open-Meteo's free tier is for non-commercial use. Fine for the app today; revisit if ads or the affiliate ideas (see "Shelved" in `CONTEXT.md`) are ever added.
@@ -378,6 +379,17 @@ Steps:
   - **Verified in headless Chrome** (real APIs, production build): the default form is unchanged (USA selected, 250 options, USA first); choosing Romania swaps ZIP for City and "Search city"; 1 letter gives the error; "Cluj" (before the filter) showed the two-choice list and picking the city gave "#SOUPCON4 CONDITION: Cluj-Napoca, Cluj County, Romania ..." with no alerts section; the pick was saved and a reload resumed it with Romania and "Cluj" restored; "zzzzqq" gave the not-found message and cleared the result; switching back to USA restored the ZIP field and a ZIP search worked; Puerto Rico "San Juan" gave a list, picking one routed to NWS ("San Juan, PR", alert count shown); phone width (390 px) wraps the row cleanly; no JavaScript errors. **Re-checked in the browser after the populated-place filter:** "Cluj" now resolves to one place and goes straight to the forecast with no pick list (the airport is filtered out); "San Juan" in Puerto Rico narrows from 9 results to 5.
   - **Known limits:** US cities are not searchable (ZIP is the US path); a search returns at most 8 places and uses the geocoder's ranking, so a small town with a famous namesake may need its region added to the query; other-language and accent handling is whatever the geocoder does (diacritics matched in a probe: "Ploiesti" found "Ploiești").
 
+### 25. Review of items 19-24 against the code — ✅ FIXED
+
+- **Ask (per owner, 2026-09-30):** review the plan and the current codebase and make sure there are no flaws. Read every source module, ran the suite (143/143), lint and build (all clean) before changing anything.
+- **Done (small fixes):**
+  - **Stale "Which one?" list.** It stayed on screen after clicking "Use Browser Location", and a city search still in flight when the Country dropdown changed could land its matches afterwards (e.g. Romanian places listed under the US ZIP field). `handleUseBrowserLocation` now clears the list, and the list only renders when its places were searched in the currently selected country. Deliberately not done by aborting the search on a country change: the stale-request paths leave `loading` to the newer lookup, so aborting with no newer lookup would leave the buttons disabled.
+  - **Sources panel wording (Open-Meteo):** said "There are no weather stations outside the US", which isn't true; now "Outside the US there are no station readings; Open-Meteo's own model estimate decides level 1."
+  - **Docs drift:** item 22 above was still headed "Plan only, nothing built yet" (now marked done); the Status section below was dated after item 18; `CONTEXT.md` and a `weatherApi.js` comment said the four NWS calls run concurrently (since item 22 `lookupWeather` awaits the label/coverage probe first); `README.md`/`CONTEXT.md` described the remembered method as browser-or-ZIP only (city search too now); `public/index.md` didn't list the geocoding APIs.
+- **Found:** the soup of the day was picked once on mount, so an installed PWA left running across midnight kept yesterday's pick until reloaded. **Fixed per owner** — see item 19's follow-up.
+- **Found:** `runLookupFromCoordinates`/`lookupWeather`'s `skipCache` option was never passed as true (and on the NWS path only reached alerts). **Removed per owner** from `runLookupFromCoordinates`, `lookupWeather` and `lookupOpenMeteo`; the per-source API functions keep theirs, since `refreshWeather` uses it. Step 6's note in item 22 describes the original signature. Lint, 145/145 tests and build pass.
+- Lint, 143/143 tests and build pass. The UI changes are JSX conditions only, not checked in a browser.
+
 ---
 
 ## Suggested order
@@ -390,9 +402,11 @@ Steps:
 6. **#10** (docs rewrite, once there's a stable thing to document)
 7. **#12 + #13** (infra + launch — last, and gated on domain registration)
 
-## Status (updated 2026-09-28, after item 18)
+## Status (updated 2026-09-30, after item 25)
 
-The rebuild (items 1-11) and infra/launch (12-13, done by the owner) are complete and `soupcon.org` is live. Items 14-18 are post-launch fixes and features, all done. What's left:
+The rebuild (items 1-11) and infra/launch (12-13, done by the owner) are complete and `soupcon.org` is live. Items 14-25 are post-launch fixes and features (including worldwide weather via Open-Meteo, item 22, and city search, item 24), all done. What's left:
+
+- **Worldwide follow-ups (optional, from item 22):** check a real snow forecast in the Open-Meteo path when one exists (the snow codes are unit-tested only), and decide whether `?lat=&lon=` places should get a name without the reverse geocoder.
 
 - **Real-device verification** — the app was finally exercised in a real (headless) browser in item 17: lookups, overlays, recipe modal, share, snow pill, phone width. Still unverified: the PWA install flow on an actual phone (only testable from the production root, see `CONTEXT.md`), and an actual print preview of the recipe.
 - **Cloudflare's managed robots.txt** shadowing the explicit `ai-input=yes` stance — a real, open decision (see `CONTEXT.md`), not a bug to fix.
