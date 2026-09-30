@@ -231,6 +231,7 @@ Raised as a question after the plan's original 13 items were all done: "what hap
   - `README.md`'s feature list updated with a one-line mention.
   - `npm run lint`, `npm run test` (30/30, unchanged -- this is presentation-only, no classification logic changed), and `npm run build` all pass.
   - **Not verified live in a browser:** same recurring caveat.
+  - **Follow-up (per owner, after item 22):** frtcon.com is US-only, so the pill is now also gated on `result.provider === PROVIDER_NWS` and never shows for a non-US (Open-Meteo) result, even when it is snowing there. The snow overlay and wording are unaffected. Lint, tests and build pass; a JSX-only condition, not verified in a browser (no snow case exists to trigger it live).
 
 ### 16. Post-launch bug review — ✅ FIXED
 

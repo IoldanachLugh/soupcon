@@ -965,7 +965,9 @@ export default function App() {
                   </button>
                 ) : null}
 
-                {soupcon.precipType === "snow" ? (
+                {/* FRTCON is US-only, so its cross-promo pill is hidden for
+                    non-US (Open-Meteo) results even when it's snowing there. */}
+                {soupcon.precipType === "snow" && result.provider === PROVIDER_NWS ? (
                   <a
                     href="https://frtcon.com"
                     target="_blank"
