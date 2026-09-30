@@ -11,7 +11,10 @@ Live at [soupcon.org](https://soupcon.org).
 
 - Looks up the NWS hourly forecast, extended (multi-day) forecast, and
   current conditions for your location, either via browser geolocation or a
-  manually entered US ZIP code.
+  manually entered US ZIP code. Outside the US (where NWS has no data) it
+  uses Open-Meteo's worldwide forecast instead, reached through browser
+  geolocation or the `lat`/`lon` URL parameters (see "Worldwide lookups"
+  below).
 - Accepts optional `lat` and `lon` URL parameters (e.g.
   `https://soupcon.org/?lat=47.6062&lon=-122.3321`) to load a specific
   location on page load. Both are required and must be in range, otherwise
@@ -109,6 +112,38 @@ disruptive condition. The rotating commentary lines in the condition box
 are not type-specific — they stay rain-flavored (umbrellas, puddles, etc.)
 regardless of whether it's actually raining or snowing, a known, accepted
 gap rather than an oversight.
+
+### Worldwide lookups (outside the US)
+
+NWS covers US points only (including Puerto Rico, Hawaii, Alaska and Guam).
+Every lookup tries NWS first; only when NWS answers that the point is
+outside its coverage (HTTP 404 from `/points`) does it use
+**[Open-Meteo](https://open-meteo.com/)** instead. An NWS outage is *not*
+treated as "outside coverage" — it still fails, rather than silently
+switching data source. See `src/lib/weatherProvider.js`.
+
+- **Same scale, separate classifier.** `classifyOpenMeteo`
+  (`src/lib/soupconOpenMeteo.js`) applies the same ordered 1-5 checks and
+  returns the identical result shape, but decides from WMO weather codes and
+  cloud-cover percentages (Open-Meteo gives no forecast text to keyword
+  match). One table, `src/lib/wmoCodes.js`, maps each code to a readable
+  label, rain/snow/none, and cloudy or not, and feeds both the classifier and
+  the "Sources" panel.
+- **Level 1** comes from Open-Meteo's `current` block (measured snowfall or
+  rain amounts, then the weather code). It is a model estimate, not a
+  station reading.
+- **Levels 2-3**: any rain or snow code in the next 12 / 48 hourly rows. The
+  hourly precipitation probability is shown but not used.
+- **Level 4 vs. 5**: the next 48 hours are split into four 12-hour blocks; a
+  block is cloudy if it has an overcast or fog hour or its average cloud
+  cover is at least 70%. Any cloudy block means level 4. The daily outlook
+  is display-only.
+- **No alerts** outside the US (the panel says so).
+- **Place name**: outside the US the name comes from BigDataCloud's reverse
+  geocoder *only* for a browser-geolocation lookup; `?lat=&lon=` coordinates
+  show as "Lat 51.51, Lon -0.13" (its Fair Use Policy allows only the
+  device's own location).
+- Non-US ZIP/postal codes are not supported ("Search US ZIP").
 
 ## Tech stack
 
@@ -240,6 +275,13 @@ in place for full functionality:
   current observations (all three drive the SOUPCON score), plus active
   alerts (shown as an independent list, not part of the score). No API key
   required.
+- **[api.open-meteo.com](https://open-meteo.com/)** — current, hourly and
+  daily forecast for points outside NWS coverage. No API key required; the
+  free tier is for non-commercial use.
+- **[api.bigdatacloud.net](https://www.bigdatacloud.com/free-api/free-reverse-geocode-to-city-api)**
+  — reverse geocoding (coordinates → place name) for non-US
+  browser-geolocation lookups. No API key; client-side only, device location
+  only.
 - **[api.zippopotam.us](https://www.zippopotam.us/)** — ZIP code → lat/lon
   lookup, used as an alternative to browser geolocation. No API key
   required.
@@ -255,6 +297,10 @@ be the right place to add proper NWS attribution.
 
 ## Known limitations
 
+- Outside the US: no alerts; "currently raining" is a model estimate rather
+  than a station reading; the snow code mapping has only been checked
+  against tests, not live data (no snow in the forecasts when it was built);
+  and `?lat=&lon=` places show as coordinates rather than a name.
 - No offline support, by design (see service worker note above).
 - The "Install App" button only appears on Android/Chrome once Chrome
   decides the app is install-eligible (includes an engagement heuristic —

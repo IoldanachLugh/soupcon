@@ -79,6 +79,8 @@ describe("lookupWeather routing", () => {
     expect(result.alerts).toEqual([]);
     expect(result.openMeteo.hourly).toHaveLength(48);
     expect(called(calls, "open-meteo")).toBe(true);
+    // The NWS alerts request can only fail outside NWS coverage, so it is never sent.
+    expect(called(calls, "/alerts/active")).toBe(false);
   });
 
   it("does not fall back on an NWS outage: a 500 fails the lookup and Open-Meteo is never asked", async () => {

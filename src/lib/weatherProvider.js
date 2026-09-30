@@ -65,13 +65,6 @@ export async function lookupWeather(
   lon,
   { signal, skipCache = false, source, geocodeWaitMs = GEOCODE_WAIT_MS } = {}
 ) {
-  // Started now so it still runs alongside the NWS requests, but its failure
-  // is ignored here: a point outside NWS coverage makes this 4xx too, which
-  // must not beat the coverage error below. When NWS does cover the point, it
-  // is awaited (and its failure counts) in the Promise.all further down.
-  const alertsPromise = getActiveAlertsByPoint(lat, lon, { signal, skipCache });
-  alertsPromise.catch(() => {});
-
   let locationLabel;
   try {
     // The first NWS call: it resolves the gridpoint the other three share
@@ -85,11 +78,15 @@ export async function lookupWeather(
     throw err;
   }
 
+  // Alerts are only requested once NWS is known to cover the point: outside
+  // it the alerts request can only fail (HTTP 400), which is a wasted call
+  // and a console error. It costs no extra time -- the forecast requests
+  // below also wait on the same gridpoint lookup and take longer than alerts.
   const [hourlyPeriods, extendedPeriods, observation, alerts] = await Promise.all([
     getHourlyForecast(lat, lon, { signal }),
     getExtendedForecast(lat, lon, { signal }),
     getCurrentConditions(lat, lon, { signal }),
-    alertsPromise,
+    getActiveAlertsByPoint(lat, lon, { signal, skipCache }),
   ]);
   return { provider: PROVIDER_NWS, locationLabel, hourlyPeriods, extendedPeriods, observation, alerts };
 }

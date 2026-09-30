@@ -1,7 +1,8 @@
 # SOUPCON — Soup Conditions
 
 SOUPCON checks the National Weather Service (NWS) forecast and current
-conditions for your location and translates them into a **Soup Condition**
+conditions for your location (or, outside the US, the Open-Meteo forecast) and
+translates them into a **Soup Condition**
 level: a tongue-in-cheek 1-5 scale for "should I make soup and stay home
 today?"
 
@@ -25,4 +26,5 @@ always wins over rain later, which wins over no rain expected at all.
 ## Data sources
 
 - [api.weather.gov](https://www.weather.gov/documentation/services-web-api) — hourly forecast, extended forecast, and current observations
+- [api.open-meteo.com](https://open-meteo.com/) — forecast for locations outside NWS coverage
 - [api.zippopotam.us](https://www.zippopotam.us/) — ZIP code to coordinates

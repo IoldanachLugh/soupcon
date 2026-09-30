@@ -134,6 +134,51 @@ existing origin server rather than standing up anything new:
   item 2's "Done" note for exactly what was checked. Still not a
   guaranteed-complete set, the same caveat FRTCON's own `event`-matching
   carried.
+- **Worldwide lookups via Open-Meteo (SOUP_PLAN.md item 22).** NWS is
+  US-only, so `src/lib/weatherProvider.js` (`lookupWeather`) tries NWS
+  first and uses Open-Meteo only when `/points` returns **404** (checked
+  live: London and Vancouver 404 with problem type `InvalidPoint`; Puerto
+  Rico, Hawaii, Alaska and Guam resolve, which is why this isn't a bounding
+  box). It keys on that 404 only (`OutsideNwsCoverageError`), never on any
+  NWS failure, so an NWS outage still fails instead of silently switching
+  source. NWS alerts are only requested once coverage is confirmed.
+  Results are tagged `provider: "nws" | "open-meteo"`; background refresh
+  (`refreshWeather`) uses the same provider and doesn't re-probe NWS.
+  - **Separate classifier, shared scale.** `classifyOpenMeteo` decides from
+    WMO weather codes (`wmoCodes.js`, one table for the classifier *and* the
+    Sources panel text) and cloud cover, and builds its result through the
+    same `soupconResult` helper as `classifySoupcon`, so both providers give
+    identical wording per level. Design calls agreed with the owner: the
+    level 4 vs. 5 window is the same ~48 hours as NWS, read from the hourly
+    rows in four 12-hour blocks (cloudy = an overcast/fog hour, or average
+    cover >= 70%; the 70% is an estimate of NWS's "Mostly Cloudy" boundary,
+    not measured); the daily rows are display-only because a day's code
+    summarizes the worst condition (London showed drizzle on a 0.5 mm day).
+    Rain/snow in the hourly rows is decided by code only, probability is
+    display-only. Level 1 uses `current` directly (snowfall > 0 is snow,
+    then rain/showers, then the code); there's no hourly fallback because
+    `current` is always present (a response without it is rejected).
+  - **Open-Meteo request details** (`openMeteoApi.js`): `timeformat=unixtime`
+    (true instants; local strings have no offset), `timezone=auto` (so the
+    daily rows start at the location's local midnight; verified for Tokyo),
+    and `forecast_hours=48&past_hours=0` so the hourly series starts at the
+    current hour rather than local midnight. An empty hourly/daily/current
+    response is an error, not "clear" (same rule as NWS).
+  - **Reverse geocoding constraint (don't relax without re-reading their
+    policy).** BigDataCloud's free client-side endpoint may only be called
+    with the *device's own current location*; other coordinates can get the
+    visitor's IP banned (HTTP 402). So `openMeteoLabel` calls it only when
+    the lookup's `source` is `"browser"`; `?lat=&lon=` URL coordinates show
+    "Lat 51.51, Lon -0.13" instead. The wait is capped at 3 s
+    (`GEOCODE_WAIT_MS`) so a slow geocoder can't hold up the forecast, and a
+    failure returns null rather than failing the lookup. Nominatim was
+    considered and not chosen (public server isn't meant for per-visitor
+    lookups).
+  - **Terms:** Open-Meteo's free tier is non-commercial. Fine today;
+    revisit before adding ads or the affiliate ideas under "Shelved".
+  - **Not supported / out of scope:** non-US ZIP codes (the button says
+    "Search US ZIP"), non-US alerts. The snow code mapping (71-77, 85-86) is
+    unit-tested only; no snow was forecast anywhere when it was built.
 - **Rain vs. snow.** Levels 1-3 don't distinguish rain from snow for the
   *level* itself — a `SNOW_KEYWORDS` list (snow, sleet, ice pellets —
   stations' word for sleet — blizzard, flurries, wintry mix) is checked *before* `RAIN_KEYWORDS`, so a mixed/ambiguous
@@ -404,7 +449,14 @@ at soupcon.org:
   `Fetch` domain can rewrite API responses to simulate weather (e.g.
   snow). Watch out: the app's geolocation call accepts a 10-minute-old
   fix (`maximumAge`), so changing the emulated location between lookups
-  in one session still returns the old position.
+  in one session still returns the old position. For the worldwide path,
+  `?lat=&lon=` URLs work directly in the browser driver, and
+  `Emulation.setGeolocationOverride` (puppeteer: `page.setGeolocation` after
+  `overridePermissions`) exercises the real browser-geolocation flow,
+  including the reverse geocoder -- use that sparingly and only for a
+  handful of requests (see the reverse-geocoding constraint above; don't
+  loop it over many places, and don't call BigDataCloud directly with
+  made-up coordinates).
 
 ## Deliberately decided against (don't re-litigate without new info)
 
