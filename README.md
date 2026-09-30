@@ -25,8 +25,8 @@ Live at [soupcon.org](https://soupcon.org).
 - Remembers whichever method (location or ZIP) you used last, and
   automatically re-runs it on your next visit — no need to click a button
   again.
-- Lists every raw active NWS alert covering your location (US only; other
-  locations say alerts aren't available), independent of
+- Lists every raw active NWS alert covering your location (US only; the
+  section is hidden for other locations), independent of
   the SOUPCON score itself (the score is forecast-based now, not
   alert-based — see "The SOUPCON scale" below).
 - Has a collapsible "Sources" section
@@ -138,7 +138,7 @@ switching data source. See `src/lib/weatherProvider.js`.
   block is cloudy if it has an overcast or fog hour or its average cloud
   cover is at least 70%. Any cloudy block means level 4. The daily outlook
   is display-only.
-- **No alerts** outside the US (the panel says so).
+- **No alerts** outside the US (the alerts tag and section are hidden).
 - **Place name**: outside the US the name comes from BigDataCloud's reverse
   geocoder *only* for a browser-geolocation lookup; `?lat=&lon=` coordinates
   show as "Lat 51.51, Lon -0.13" (its Fair Use Policy allows only the

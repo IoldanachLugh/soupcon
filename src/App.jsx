@@ -819,24 +819,25 @@ export default function App() {
               ) : null}
             </div>
 
-            <div>
-              {/* This list of raw NWS alerts for the location is no longer
-                  what drives the SOUPCON score above (that's now forecast-
-                  based -- see soupcon.js) -- kept as an independent
-                  "what's actually active here" panel per SOUP_PLAN.md's
-                  open question on this, since flood-family alerts are
-                  still on-theme for a rain app. */}
-              <div className="active-alerts-heading">Active Alerts</div>
-              {/* Open-Meteo (non-US) has no alerts feed, so say so rather than
-                  showing a misleading "0 alerts" / "none active". */}
-              {result.provider !== PROVIDER_NWS ? (
-                <div className="card">Weather alerts are only available for US locations.</div>
-              ) : result.alerts.length === 0 ? (
-                <div className="card">No active alerts were returned for this location.</div>
-              ) : (
-                result.alerts.map((feature) => <AlertCard key={feature.id} feature={feature} />)
-              )}
-            </div>
+            {/* Open-Meteo (non-US) has no alerts feed, so the whole section is
+                hidden there rather than showing an empty or explanatory panel
+                (same as the alert-count tag above). */}
+            {result.provider === PROVIDER_NWS ? (
+              <div>
+                {/* This list of raw NWS alerts for the location is no longer
+                    what drives the SOUPCON score above (that's now forecast-
+                    based -- see soupcon.js) -- kept as an independent
+                    "what's actually active here" panel per SOUP_PLAN.md's
+                    open question on this, since flood-family alerts are
+                    still on-theme for a rain app. */}
+                <div className="active-alerts-heading">Active Alerts</div>
+                {result.alerts.length === 0 ? (
+                  <div className="card">No active alerts were returned for this location.</div>
+                ) : (
+                  result.alerts.map((feature) => <AlertCard key={feature.id} feature={feature} />)
+                )}
+              </div>
+            ) : null}
 
             <StationDebugPanel result={result} />
           </div>
