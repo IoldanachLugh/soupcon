@@ -94,6 +94,23 @@ export async function fetchJson(url, { signal } = {}) {
   }
 }
 
+// Thrown by the NWS gridpoint lookup when `/points` answers 404 for a
+// coordinate: NWS covers US points only and returns 404 (problem type
+// `InvalidPoint`, "Data Unavailable For Requested Point") for anywhere else,
+// London and Vancouver included (checked live; Puerto Rico, Hawaii, Alaska
+// and Guam all resolve). weatherProvider.js falls back to Open-Meteo on
+// exactly this error and nothing else -- an NWS outage (5xx, timeout) must
+// still surface as a failure, not silently switch provider. The message is
+// the same one a 404 always showed.
+export const OUTSIDE_NWS_COVERAGE_MESSAGE = "This location isn't covered by the National Weather Service.";
+
+export class OutsideNwsCoverageError extends Error {
+  constructor() {
+    super(OUTSIDE_NWS_COVERAGE_MESSAGE);
+    this.name = "OutsideNwsCoverageError";
+  }
+}
+
 // Turns a raw HttpError into copy a person can actually act on -- never a
 // URL, a status code, or the word "fetch". The technical detail isn't
 // thrown away, just moved: it still goes to the console for whoever's
@@ -212,7 +229,8 @@ async function getGridpointInfo(lat, lon, { signal } = {}) {
     try {
       pointData = await fetchJson(`${WEATHER_GOV_BASE}/points/${lat},${lon}`, { signal });
     } catch (err) {
-      const message = friendlyMessage(err, "This location isn't covered by the National Weather Service.");
+      if (err instanceof HttpError && err.status === 404) throw new OutsideNwsCoverageError();
+      const message = friendlyMessage(err);
       throw message ? new Error(message) : err;
     }
 

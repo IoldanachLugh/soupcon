@@ -41,7 +41,7 @@ describe("formatPlaceLabel", () => {
 
 describe("coordinatesLabel", () => {
   it("shows both coordinates to two decimals", () => {
-    expect(coordinatesLabel(51.5074, -0.1278)).toBe("51.51, -0.13");
+    expect(coordinatesLabel(51.5074, -0.1278)).toBe("Lat 51.51, Lon -0.13");
   });
 });
 

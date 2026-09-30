@@ -48,7 +48,7 @@ export function formatPlaceLabel(place) {
 // What to show when there's no place name (or the geocoder isn't allowed):
 // the coordinates themselves, to the ~1 km precision a forecast has anyway.
 export function coordinatesLabel(lat, lon) {
-  return `${Number(lat).toFixed(2)}, ${Number(lon).toFixed(2)}`;
+  return `Lat ${Number(lat).toFixed(2)}, Lon ${Number(lon).toFixed(2)}`;
 }
 
 // Never throws for a failed lookup -- the label is cosmetic, so a geocoder

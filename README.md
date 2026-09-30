@@ -126,12 +126,13 @@ src/
     wmoCodes.js              — WMO weather code -> readable label / precip type /
                                 cloudy flag (one table for classifier + Sources)
     soupconOpenMeteo.js      — normalizes Open-Meteo data and classifies it
-                                (classifyOpenMeteo), not yet wired into the app
+                                (classifyOpenMeteo)
     reverseGeocode.js        — place names for non-US lookups (BigDataCloud,
-                                browser-geolocation only), not yet wired in
+                                browser-geolocation only)
+    weatherProvider.js       — picks NWS (US) or Open-Meteo (elsewhere) per lookup:
+                                lookupWeather, refreshWeather, classifyLookup
     openMeteoApi.js          — Open-Meteo fetch layer (non-US fallback,
-                                not yet wired into the app -- see
-                                SOUP_PLAN.md item 22)
+                                see SOUP_PLAN.md item 22)
     cache.js                 — localStorage caching helpers (TTL-based)
     soupcon.js                — pure classification logic (classifySoupcon,
                                 pickRandomItems) — no React/DOM dependency,

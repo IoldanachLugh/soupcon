@@ -2,7 +2,7 @@ export function SoupconMessage({ level, locationLabel, headline, title, lines })
   return (
     <div className="soupcon-condition-status">
       <div className="soupcon-condition-headline">
-        {headline} - {locationLabel} is currently at Soup Condition #{level}.
+        {headline}: {locationLabel} is currently at Soup Condition #{level}.
       </div>
       <div className="soupcon-condition-title">{title}</div>
       {lines.map((line, index) => (

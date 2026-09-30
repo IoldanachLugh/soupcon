@@ -3,16 +3,12 @@ import "./styles.css";
 import {
   isValidZip,
   getLatLonFromZip,
-  getLocationLabel,
-  getHourlyForecast,
-  getExtendedForecast,
-  getCurrentConditions,
-  getActiveAlertsByPoint,
   ALERTS_AUTO_REFRESH_MS,
   STALE_ON_VISIBLE_MS,
 } from "./lib/weatherApi";
 import { safeGetItem, safeSetItem } from "./lib/cache";
-import { classifySoupcon, pickRandomItems } from "./lib/soupcon";
+import { pickRandomItems } from "./lib/soupcon";
+import { lookupWeather, refreshWeather, classifyLookup } from "./lib/weatherProvider";
 import { soupMessages } from "./data/soupMessages";
 import { RainOverlay } from "./components/RainOverlay";
 import { SnowOverlay } from "./components/SnowOverlay";
@@ -193,11 +189,7 @@ export default function App() {
 
   const soupcon = useMemo(() => {
     if (!result) return null;
-    return classifySoupcon({
-      hourlyPeriods: result.hourlyPeriods,
-      observation: result.observation,
-      extendedPeriods: result.extendedPeriods,
-    });
+    return classifyLookup(result);
   }, [result]);
 
   // Computed here (rather than inside SoupconMessage) so the Share button can
@@ -272,20 +264,9 @@ export default function App() {
       setError("");
 
       try {
-        // Fetched independently, not chained: none of these five depend on
-        // another's result (getLocationLabel/getHourlyForecast/
-        // getExtendedForecast/getCurrentConditions all share a single
-        // cached /points lookup internally -- see getGridpointInfo in
-        // weatherApi.js -- so this isn't 4 separate round trips in
-        // practice). Alerts still come from a direct point query (see
-        // getActiveAlertsByPoint for why that's not a zone-based lookup).
-        const [locationLabel, hourlyPeriods, extendedPeriods, observation, alerts] = await Promise.all([
-          getLocationLabel(lat, lon, { signal }),
-          getHourlyForecast(lat, lon, { signal }),
-          getExtendedForecast(lat, lon, { signal }),
-          getCurrentConditions(lat, lon, { signal }),
-          getActiveAlertsByPoint(lat, lon, { signal, skipCache }),
-        ]);
+        // NWS for US points, Open-Meteo everywhere else -- see
+        // lib/weatherProvider.js for the routing and the result shapes.
+        const lookup = await lookupWeather(lat, lon, { signal, skipCache, source: inputSource });
 
         if (signal.aborted) return false;
 
@@ -294,11 +275,7 @@ export default function App() {
           source: inputSource,
           lat,
           lon,
-          locationLabel,
-          hourlyPeriods,
-          extendedPeriods,
-          observation,
-          alerts,
+          ...lookup,
           fetchedAt: Date.now(),
         });
         return true;
@@ -319,26 +296,22 @@ export default function App() {
   // visibilitychange catch-up). Deliberately bypasses each source's TTL
   // cache (skipCache: true) rather than waiting for it to expire -- this is
   // live weather data, so every refresh genuinely hits the network for all
-  // four sources, not just alerts, even though hourly/extended forecast
-  // have longer TTLs of their own (those TTLs matter for a *repeat* lookup
-  // of the same location within the cache window, not for how often this
-  // background refresh itself runs). Only applies its result if the
-  // location it was fetched for is still the one on screen -- guards
-  // against a slow refresh landing after the user has since searched
-  // somewhere else. A failure in any one of the four discards the whole
-  // update rather than partially applying it, same "silently keep the last
-  // good state" tradeoff the old alerts-only version made.
-  const refreshWeatherData = useCallback((lat, lon) => {
-    return Promise.all([
-      getHourlyForecast(lat, lon, { skipCache: true }),
-      getExtendedForecast(lat, lon, { skipCache: true }),
-      getCurrentConditions(lat, lon, { skipCache: true }),
-      getActiveAlertsByPoint(lat, lon, { skipCache: true }),
-    ])
-      .then(([hourlyPeriods, extendedPeriods, observation, alerts]) => {
+  // of the provider's sources, not just alerts, even though hourly/extended
+  // forecast have longer TTLs of their own (those TTLs matter for a *repeat*
+  // lookup of the same location within the cache window, not for how often
+  // this background refresh itself runs). Refreshes from the same provider
+  // the lookup used (see refreshWeather) rather than re-probing NWS. Only
+  // applies its result if the location it was fetched for is still the one
+  // on screen -- guards against a slow refresh landing after the user has
+  // since searched somewhere else. A failure in any one source discards the
+  // whole update rather than partially applying it, same "silently keep the
+  // last good state" tradeoff the old alerts-only version made.
+  const refreshWeatherData = useCallback((lat, lon, provider) => {
+    return refreshWeather(lat, lon, provider)
+      .then((fresh) => {
         setResult((prev) =>
           prev && prev.lat === lat && prev.lon === lon
-            ? { ...prev, hourlyPeriods, extendedPeriods, observation, alerts, fetchedAt: Date.now() }
+            ? { ...prev, ...fresh, fetchedAt: Date.now() }
             : prev
         );
       })
@@ -359,11 +332,11 @@ export default function App() {
     if (result?.lat == null || result?.lon == null) return undefined;
 
     const intervalId = setInterval(() => {
-      refreshWeatherData(result.lat, result.lon);
+      refreshWeatherData(result.lat, result.lon, result.provider);
     }, ALERTS_AUTO_REFRESH_MS);
 
     return () => clearInterval(intervalId);
-  }, [result?.lat, result?.lon, refreshWeatherData]);
+  }, [result?.lat, result?.lon, result?.provider, refreshWeatherData]);
 
   // Mobile browsers throttle or freeze the setInterval above for background
   // tabs and suspended/installed PWAs, so it can't be trusted to catch up
@@ -378,13 +351,13 @@ export default function App() {
     function onVisibilityChange() {
       if (document.visibilityState !== "visible") return;
       if (result.fetchedAt == null || Date.now() - result.fetchedAt >= STALE_ON_VISIBLE_MS) {
-        refreshWeatherData(result.lat, result.lon);
+        refreshWeatherData(result.lat, result.lon, result.provider);
       }
     }
 
     document.addEventListener("visibilitychange", onVisibilityChange);
     return () => document.removeEventListener("visibilitychange", onVisibilityChange);
-  }, [result?.lat, result?.lon, result?.fetchedAt, refreshWeatherData]);
+  }, [result?.lat, result?.lon, result?.provider, result?.fetchedAt, refreshWeatherData]);
 
   function handleUseBrowserLocation() {
     setSource("browser");
@@ -482,7 +455,7 @@ export default function App() {
     // its own `u` param, so repeating it as plain text in the pasted body
     // would just duplicate it.
     const shareText = [
-      `${soupconMessage.headline} - ${result.locationLabel} is currently at Soup Condition #${soupcon.level}.`,
+      `${soupconMessage.headline}: ${result.locationLabel} is currently at Soup Condition #${soupcon.level}.`,
       soupconMessage.title,
       ...soupconMessage.lines,
     ].join("\n");
