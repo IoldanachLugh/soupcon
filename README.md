@@ -127,6 +127,8 @@ src/
                                 cloudy flag (one table for classifier + Sources)
     soupconOpenMeteo.js      — normalizes Open-Meteo data and classifies it
                                 (classifyOpenMeteo), not yet wired into the app
+    reverseGeocode.js        — place names for non-US lookups (BigDataCloud,
+                                browser-geolocation only), not yet wired in
     openMeteoApi.js          — Open-Meteo fetch layer (non-US fallback,
                                 not yet wired into the app -- see
                                 SOUP_PLAN.md item 22)
