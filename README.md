@@ -29,7 +29,10 @@ Live at [soupcon.org](https://soupcon.org).
 - Has a collapsible "Sources" section
   under the alerts that lists every nearby station's latest reading
   (which one is used, which were skipped and why) plus the hourly/extended
-  forecast periods the score is computed from. Collapsed by default.
+  forecast periods the score is computed from. Collapsed by default. For
+  locations outside the US (Open-Meteo, no stations) it shows the current
+  model values, hourly rows, the 12-hour cloud blocks and the daily outlook
+  instead.
 - Has a printable recipe modal, one hamburger-menu item per recipe
   (currently Potsticker Soup, Senegalese Chicken Soup, and Lasagna Soup, extracted from
   the owner's own recipe wiki), that prints cleanly on its own,

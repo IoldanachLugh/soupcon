@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { normalizeOpenMeteo, classifyOpenMeteo, currentPrecipType, CLOUDY_BLOCK_MIN_COVER } from "./soupconOpenMeteo";
+import { normalizeOpenMeteo, classifyOpenMeteo, currentPrecipType, cloudBlocks, CLOUDY_BLOCK_MIN_COVER } from "./soupconOpenMeteo";
 import { classifySoupcon } from "./soupcon";
 
 const HOUR_S = 3600;
@@ -135,5 +135,35 @@ describe("classifyOpenMeteo", () => {
     expect(classify(raw({ baseCode: 3 }))).toEqual(
       classifySoupcon({ extendedPeriods: [{ shortForecast: "Cloudy", endTime: "2999-01-01T00:00:00Z" }], now: 0 })
     );
+  });
+});
+
+describe("cloudBlocks", () => {
+  const blocks = (response) => cloudBlocks(normalizeOpenMeteo(response).hourly);
+
+  it("splits 48 hours into four blocks and says why each is cloudy", () => {
+    const result = blocks(raw({ hourCodes: { 13: 3 }, hourCover: { 24: 100, 25: 100, 26: 100, 27: 100, 28: 100, 29: 100, 30: 100, 31: 100, 32: 100, 33: 100, 34: 100, 35: 100 } }));
+    expect(result).toHaveLength(4);
+    expect(result.map((block) => block.cloudy)).toEqual([false, true, true, false]);
+    expect(result[1].hasCloudyCode).toBe(true);
+    expect(result[2]).toMatchObject({ averageCover: 100, hasCloudyCode: false });
+  });
+
+  it("agrees with the classifier: any cloudy block means level 4", () => {
+    const response = raw({ hourCodes: { 40: 45 } });
+    expect(blocks(response).some((block) => block.cloudy)).toBe(true);
+    expect(classify(response).level).toBe(4);
+  });
+
+  it("returns fewer blocks for a short series and none for an empty one", () => {
+    expect(cloudBlocks(normalizeOpenMeteo(raw()).hourly.slice(0, 14))).toHaveLength(2);
+    expect(cloudBlocks([])).toEqual([]);
+  });
+});
+
+describe("normalizeOpenMeteo timezone", () => {
+  it("carries the location's time zone for labeling days", () => {
+    expect(normalizeOpenMeteo({ ...raw(), timezone: "Asia/Tokyo" }).timezone).toBe("Asia/Tokyo");
+    expect(normalizeOpenMeteo(raw()).timezone).toBe(null);
   });
 });

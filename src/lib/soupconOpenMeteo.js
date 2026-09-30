@@ -37,6 +37,7 @@ export function normalizeOpenMeteo(raw) {
   const current = raw?.current;
   const { label, precipType, cloudy } = describeWmoCode(current?.weather_code);
   return {
+    timezone: raw?.timezone ?? null,
     current: current
       ? {
           time: current.time * 1000,
@@ -79,11 +80,33 @@ function firstPrecipType(rows) {
   return rows.find((row) => row.precipType)?.precipType ?? null;
 }
 
-function blockIsCloudy(rows) {
-  if (rows.some((row) => row.cloudy)) return true;
-  const covers = rows.map((row) => row.cloudCover).filter((value) => typeof value === "number");
-  if (covers.length === 0) return false;
-  return covers.reduce((sum, value) => sum + value, 0) / covers.length >= CLOUDY_BLOCK_MIN_COVER;
+// The 12-hour blocks (up to four) the level 4 vs. 5 split is decided from,
+// with why each is or isn't cloudy. Exported so the Sources panel shows
+// exactly what the classifier used. `hourly` must already be limited to
+// rows that haven't ended.
+export function cloudBlocks(hourly) {
+  const blocks = [];
+  for (let block = 0; block < BLOCK_COUNT; block += 1) {
+    const rows = hourly.slice(block * BLOCK_HOURS, (block + 1) * BLOCK_HOURS);
+    if (rows.length === 0) break;
+    const covers = rows.map((row) => row.cloudCover).filter((value) => typeof value === "number");
+    const averageCover = covers.length ? covers.reduce((sum, value) => sum + value, 0) / covers.length : null;
+    const hasCloudyCode = rows.some((row) => row.cloudy);
+    const coverIsCloudy = averageCover !== null && averageCover >= CLOUDY_BLOCK_MIN_COVER;
+    blocks.push({
+      start: rows[0].start,
+      end: rows[rows.length - 1].end,
+      averageCover,
+      hasCloudyCode,
+      cloudy: hasCloudyCode || coverIsCloudy,
+    });
+  }
+  return blocks;
+}
+
+// Rows that haven't ended yet -- shared with the Sources panel.
+export function upcomingRows(rows, now = Date.now()) {
+  return (rows ?? []).filter((row) => row.end > now);
 }
 
 // Same ordered checks as classifySoupcon, first match wins:
@@ -93,7 +116,7 @@ function blockIsCloudy(rows) {
 // Rows that already ended are dropped first, so a cached response doesn't
 // count past hours. `now` is injectable for tests.
 export function classifyOpenMeteo({ forecast, now = Date.now() } = {}) {
-  const hourly = (forecast?.hourly ?? []).filter((row) => row.end > now);
+  const hourly = upcomingRows(forecast?.hourly, now);
 
   const currentType = currentPrecipType(forecast?.current);
   if (currentType) return soupconResult(1, currentType);
@@ -107,10 +130,5 @@ export function classifyOpenMeteo({ forecast, now = Date.now() } = {}) {
   // Precipitation in the four blocks would already have matched level 3
   // above (the blocks cover the same 48 rows), so only cloud cover is
   // checked here.
-  for (let block = 0; block < BLOCK_COUNT; block += 1) {
-    const rows = hourly.slice(block * BLOCK_HOURS, (block + 1) * BLOCK_HOURS);
-    if (rows.length > 0 && blockIsCloudy(rows)) return soupconResult(4);
-  }
-
-  return soupconResult(5);
+  return cloudBlocks(hourly).some((block) => block.cloudy) ? soupconResult(4) : soupconResult(5);
 }

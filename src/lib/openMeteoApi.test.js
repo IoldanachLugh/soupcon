@@ -42,15 +42,15 @@ describe("makeOpenMeteoUrl", () => {
     expect(url).toContain("hourly=weather_code,precipitation_probability,");
     expect(url).toContain("daily=weather_code,precipitation_probability_max,");
     expect(url).toContain("forecast_hours=48&past_hours=0");
-    expect(url).toContain("timeformat=unixtime");
+    expect(url).toContain("timeformat=unixtime&timezone=auto");
   });
 });
 
 describe("getOpenMeteoForecast", () => {
   it("returns current, hourly and daily from a single request", async () => {
-    const fetchMock = stubFetch(() => ok({ ...RESPONSE, latitude: 51.5, timezone: "UTC" }));
+    const fetchMock = stubFetch(() => ok({ ...RESPONSE, latitude: 51.5, timezone: "Europe/London" }));
     const result = await getOpenMeteoForecast(51.5074, -0.1278);
-    expect(result).toEqual(RESPONSE);
+    expect(result).toEqual({ ...RESPONSE, timezone: "Europe/London" });
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
