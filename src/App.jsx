@@ -31,6 +31,22 @@ import { pickSoupOfTheDay } from "./lib/soupOfTheDay";
 // -- a new recipe file needs adding here too, alongside its menu item.
 const ALL_RECIPES = [POTSTICKER_SOUP, SENEGALESE_CHICKEN_SOUP, LASAGNA_SOUP];
 
+// Optional `?lat=..&lon=..` URL parameters point the app at a specific
+// location. Both must be present and in range, otherwise they're ignored
+// and the normal saved-lookup behavior applies. Parsed once at module load.
+function readUrlLocation() {
+  const params = new URLSearchParams(window.location.search);
+  const rawLat = params.get("lat")?.trim();
+  const rawLon = params.get("lon")?.trim();
+  if (!rawLat || !rawLon) return null;
+  const lat = Number(rawLat);
+  const lon = Number(rawLon);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+  if (lat < -90 || lat > 90 || lon < -180 || lon > 180) return null;
+  return { lat: Number(lat.toFixed(4)), lon: Number(lon.toFixed(4)) };
+}
+const URL_LOCATION = readUrlLocation();
+
 export default function App() {
   const [zip, setZip] = useState("");
   const [loading, setLoading] = useState(false);
@@ -574,6 +590,15 @@ export default function App() {
       setZip(savedZip);
     }
 
+    // A location in the URL wins over the remembered method. It's a
+    // one-off link, so it's deliberately not saved as the last source/ZIP.
+    if (URL_LOCATION) {
+      setSource("url");
+      requestSeqRef.current++;
+      runLookupFromCoordinates(URL_LOCATION.lat, URL_LOCATION.lon, "url");
+      return;
+    }
+
     const savedSource = safeGetItem("soupcon_last_source");
     if (savedSource === "browser") {
       // A permission denial won't have changed on its own since the last
@@ -722,6 +747,11 @@ export default function App() {
               <button className="btn-secondary" type="submit" disabled={loading}>
                 {loading && source === "zip" ? "Looking up..." : "Search ZIP"}
               </button>
+              {source === "url" && URL_LOCATION ? (
+                <span className="custom-location-note">
+                  Using Lat: {URL_LOCATION.lat} Lon: {URL_LOCATION.lon}
+                </span>
+              ) : null}
             </form>
           </div>
 

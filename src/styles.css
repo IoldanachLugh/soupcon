@@ -326,6 +326,11 @@ div[role="dialog"] {
   min-width: 180px;
 }
 
+.custom-location-note {
+  color: #e5d9f5;
+  font-size: 14px;
+}
+
 .visually-hidden-label {
   position: absolute;
   left: -9999px;

@@ -12,6 +12,11 @@ Live at [soupcon.org](https://soupcon.org).
 - Looks up the NWS hourly forecast, extended (multi-day) forecast, and
   current conditions for your location, either via browser geolocation or a
   manually entered ZIP code.
+- Accepts optional `lat` and `lon` URL parameters (e.g.
+  `https://soupcon.org/?lat=47.6062&lon=-122.3321`) to load a specific
+  location on page load. Both are required and must be in range, otherwise
+  they're ignored. They take priority over the remembered lookup method,
+  and a URL-driven lookup is not saved as the "last used" method.
 - Classifies that data into a 5-level SOUPCON scale (see below), with a
   randomized bit of commentary per level.
 - Remembers whichever method (location or ZIP) you used last, and

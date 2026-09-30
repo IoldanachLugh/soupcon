@@ -1261,6 +1261,24 @@ shape, agreed 2026-09-27 (waiting on the owner to send the wiki URL).
     corroboration, require a second station.
   - **Not verified in a browser** (code, tests and live-API checks only).
 
+### 21. `lat`/`lon` URL parameters — ✅ FIXED
+
+- **Ask (per user):** "add lat and lon parameters to customize the location
+  being loaded" (URL query parameters).
+- **Done:** `App.jsx` reads `?lat=..&lon=..` once at module load
+  (`readUrlLocation`); both must be present, numeric, and in range
+  (-90..90 / -180..180), else ignored. When valid, the mount effect runs
+  `runLookupFromCoordinates` with source `"url"` instead of the saved-source
+  auto-resume. Deliberately **not** persisted to `soupcon_last_source`/
+  `soupcon_last_zip`, so a one-off shared link doesn't replace a visitor's
+  own remembered method. Coordinates outside NWS coverage surface NWS's
+  normal lookup error.
+  - **Follow-up (per owner):** while the URL location is what's being used
+    (`source === "url"`, i.e. until the visitor runs a ZIP/browser lookup),
+    "Using Lat: {lat} Lon: {lon}" shows to the right of the Search ZIP button
+    (`.custom-location-note`), so it's visible the parameters were accepted.
+  - `README.md` updated. Not verified in a browser (lint/tests/build only).
+
 ---
 
 ## Suggested order
