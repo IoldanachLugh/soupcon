@@ -674,6 +674,18 @@ div[role="dialog"] {
   cursor: pointer;
 }
 
+/* Smaller than the heading text, like the native <details> marker. */
+.station-debug-marker {
+  display: inline-block;
+  margin-right: 0.4em;
+  font-size: 0.6em;
+  vertical-align: middle;
+}
+
+.station-debug-toggle[aria-expanded="true"] .station-debug-marker {
+  transform: rotate(90deg);
+}
+
 .station-debug-header {
   margin: 14px 0 0;
   font-size: 20px;
@@ -694,6 +706,27 @@ div[role="dialog"] {
   color: #e5d9f5;
   text-align: left;
   font-size: 15px;
+}
+
+/* 48-hour chart (ForecastChart.jsx) and its collapsed table view. uPlot's
+   own stylesheet sets the layout; only colors and spacing are adjusted. */
+.forecast-chart {
+  margin-top: 10px;
+  width: 100%;
+}
+
+.forecast-chart .u-legend {
+  color: #e5d9f5;
+  font-size: 14px;
+}
+
+.station-debug-table {
+  margin-top: 8px;
+  color: #e5d9f5;
+}
+
+.station-debug-table summary {
+  cursor: pointer;
 }
 
 .station-debug-chosen {

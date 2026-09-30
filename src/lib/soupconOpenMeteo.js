@@ -76,6 +76,20 @@ export function currentPrecipType(current) {
   return current.precipitation > 0 ? "rain" : null;
 }
 
+// Level 1 is often decided by a measured amount rather than the weather
+// code (e.g. 0.1 mm of showers under a "Partly cloudy" code), so the basis
+// names any nonzero amounts alongside the code's label.
+function currentBasis(current) {
+  const amounts = [
+    ["snowfall", current.snowfall, "cm"],
+    ["rain", current.rain, "mm"],
+    ["showers", current.showers, "mm"],
+  ]
+    .filter(([, value]) => value > 0)
+    .map(([name, value, unit]) => `${name} ${value} ${unit}`);
+  return makeBasis("current", { time: current.time, text: [current.label, ...amounts].join(", ") });
+}
+
 function rowBasis(row) {
   return makeBasis("hourly", { time: row.start, text: row.label, probability: row.precipProbability });
 }
@@ -120,7 +134,7 @@ export function classifyOpenMeteo({ forecast, now = Date.now() } = {}) {
 
   const current = forecast?.current;
   const currentType = currentPrecipType(current);
-  if (currentType) return soupconResult(1, currentType, makeBasis("current", { time: current.time, text: current.label }));
+  if (currentType) return soupconResult(1, currentType, currentBasis(current));
 
   const next12 = hourly.slice(0, 12).find((row) => row.precipType);
   if (next12) return soupconResult(2, next12.precipType, rowBasis(next12));

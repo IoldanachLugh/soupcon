@@ -13,6 +13,9 @@ export const GRIDPOINT_CACHE_PREFIX = "soupcon_gridpoint_";
 export const HOURLY_FORECAST_CACHE_PREFIX = "soupcon_hourly_forecast_";
 export const EXTENDED_FORECAST_CACHE_PREFIX = "soupcon_extended_forecast_";
 export const OBSERVATION_CACHE_PREFIX = "soupcon_observation_";
+// Hourly sky cover from the raw gridpoint data, for the Sources panel chart
+// only (SOUP_PLAN.md item 27) -- not used by the classifier.
+export const SKY_COVER_CACHE_PREFIX = "soupcon_sky_cover_";
 // Open-Meteo, the non-US fallback (SOUP_PLAN.md item 22): one response carries
 // current + hourly + daily data, so it gets a single cache entry.
 export const OPEN_METEO_CACHE_PREFIX = "soupcon_openmeteo_";
@@ -27,6 +30,8 @@ export const GRIDPOINT_CACHE_TTL_MS = CACHE_TTL_MS;
 export const HOURLY_FORECAST_CACHE_TTL_MS = 30 * 60 * 1000;
 // The 12-hour-period extended forecast changes only a couple of times a day.
 export const EXTENDED_FORECAST_CACHE_TTL_MS = 2 * 60 * 60 * 1000;
+// Sky cover comes from the same forecast run as the hourly forecast.
+export const SKY_COVER_CACHE_TTL_MS = HOURLY_FORECAST_CACHE_TTL_MS;
 // "Is it raining right now" needs to be genuinely current -- same order of
 // magnitude as the existing alerts TTL.
 export const OBSERVATION_CACHE_TTL_MS = 5 * 60 * 1000;
@@ -86,6 +91,10 @@ export function makeObservationCacheKey(lat, lon) {
   return `${OBSERVATION_CACHE_PREFIX}${Number(lat).toFixed(3)},${Number(lon).toFixed(3)}`;
 }
 
+export function makeSkyCoverCacheKey(lat, lon) {
+  return `${SKY_COVER_CACHE_PREFIX}${Number(lat).toFixed(3)},${Number(lon).toFixed(3)}`;
+}
+
 export function makeOpenMeteoCacheKey(lat, lon) {
   return `${OPEN_METEO_CACHE_PREFIX}${Number(lat).toFixed(3)},${Number(lon).toFixed(3)}`;
 }
@@ -107,6 +116,7 @@ const TTL_MS_BY_PREFIX = {
   [HOURLY_FORECAST_CACHE_PREFIX]: HOURLY_FORECAST_CACHE_TTL_MS,
   [EXTENDED_FORECAST_CACHE_PREFIX]: EXTENDED_FORECAST_CACHE_TTL_MS,
   [OBSERVATION_CACHE_PREFIX]: OBSERVATION_CACHE_TTL_MS,
+  [SKY_COVER_CACHE_PREFIX]: SKY_COVER_CACHE_TTL_MS,
   [OPEN_METEO_CACHE_PREFIX]: OPEN_METEO_CACHE_TTL_MS,
   [GEOCODE_CACHE_PREFIX]: GEOCODE_CACHE_TTL_MS,
 };

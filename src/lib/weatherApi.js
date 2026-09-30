@@ -6,12 +6,14 @@ import {
   makeHourlyForecastCacheKey,
   makeExtendedForecastCacheKey,
   makeObservationCacheKey,
+  makeSkyCoverCacheKey,
   ZIP_CACHE_PREFIX,
   ALERTS_CACHE_TTL_MS,
   GRIDPOINT_CACHE_TTL_MS,
   HOURLY_FORECAST_CACHE_TTL_MS,
   EXTENDED_FORECAST_CACHE_TTL_MS,
   OBSERVATION_CACHE_TTL_MS,
+  SKY_COVER_CACHE_TTL_MS,
 } from "./cache";
 
 export const WEATHER_GOV_BASE = "https://api.weather.gov";
@@ -246,6 +248,7 @@ async function getGridpointInfo(lat, lon, { signal } = {}) {
     const value = {
       forecastHourlyUrl: p.forecastHourly,
       forecastUrl: p.forecast,
+      forecastGridDataUrl: p.forecastGridData || null,
       observationStationsUrl: p.observationStations || null,
       // City/state read better in a rain-forecast app than a forecast zone
       // name (e.g. "Seattle, WA" vs. "King County") -- SOUPCON uses this
@@ -510,4 +513,45 @@ export async function getStationReadings(lat, lon, { signal } = {}) {
 
   const chosenIndex = readings.findIndex((reading) => reading.usable);
   return readings.map((reading, index) => ({ ...reading, chosen: index === chosenIndex }));
+}
+
+const HOUR_MS = 60 * 60 * 1000;
+
+// Raw gridpoint values come as ISO 8601 intervals, one value per run of
+// identical hours: "2026-09-30T12:00:00+00:00/PT3H" means that value for
+// 12:00, 13:00 and 14:00 UTC. Expanded here to one { start, value } per hour
+// (start in ms), so they line up with the hourly forecast periods.
+// Unparseable entries are skipped.
+export function expandGridValues(values) {
+  const hours = [];
+  for (const entry of values ?? []) {
+    const [startText, durationText] = String(entry?.validTime ?? "").split("/");
+    const start = Date.parse(startText);
+    const match = /^P(?:(\d+)D)?(?:T(?:(\d+)H)?(?:\d+M)?)?$/.exec(durationText ?? "");
+    if (Number.isNaN(start) || !match) continue;
+    const count = Number(match[1] ?? 0) * 24 + Number(match[2] ?? 0);
+    for (let i = 0; i < count; i += 1) {
+      hours.push({ start: start + i * HOUR_MS, value: entry.value ?? null });
+    }
+  }
+  return hours;
+}
+
+// Hourly sky cover (%) for the Sources panel chart -- NWS's own number
+// behind "Mostly Cloudy"/"Partly Sunny". Display only: the classifier still
+// decides level 4 vs. 5 from the extended forecast wording. Only fetched
+// while the Sources panel is open, and cached like the hourly forecast.
+export async function getSkyCover(lat, lon, { signal } = {}) {
+  const cacheKey = makeSkyCoverCacheKey(lat, lon);
+  const cached = getCacheItem(cacheKey, SKY_COVER_CACHE_TTL_MS);
+  if (cached) return cached;
+
+  const gridpoint = await getGridpointInfo(lat, lon, { signal });
+  // Gridpoint entries cached before forecastGridDataUrl existed lack it; the
+  // raw data lives at the forecast URL minus its "/forecast" suffix.
+  const url = gridpoint.forecastGridDataUrl ?? gridpoint.forecastUrl?.replace(/\/forecast$/, "");
+  const data = await fetchJson(url, { signal });
+  const value = expandGridValues(data?.properties?.skyCover?.values);
+  if (value.length > 0) setCacheItem(cacheKey, value);
+  return value;
 }

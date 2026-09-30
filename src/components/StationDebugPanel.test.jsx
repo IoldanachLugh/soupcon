@@ -43,7 +43,7 @@ describe("OpenMeteoSources", () => {
     const forecast = normalizeOpenMeteo(raw);
     const html = renderToStaticMarkup(<OpenMeteoSources forecast={forecast} soupcon={classifyOpenMeteo({ forecast })} />);
     expect(html).toContain("SOUPCON1 decided by: <strong>model estimate");
-    expect(html).toContain("Slight rain</strong>");
+    expect(html).toContain("Slight rain, rain 0.4 mm</strong>");
   });
 
   it("copes with a missing current block", () => {

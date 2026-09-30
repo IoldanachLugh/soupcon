@@ -140,7 +140,8 @@ describe("classifyOpenMeteo", () => {
   });
 
   it("records the reading that decided the level as its basis", () => {
-    expect(classify(raw({ current: { rain: 0.4, weather_code: 61 } })).basis).toMatchObject({ source: "current", time: NOW, text: "Slight rain" });
+    expect(classify(raw({ current: { rain: 0.4, weather_code: 61 } })).basis).toMatchObject({ source: "current", time: NOW, text: "Slight rain, rain 0.4 mm" });
+    expect(classify(raw({ current: { showers: 0.1, weather_code: 2 } })).basis).toMatchObject({ text: "Partly cloudy, showers 0.1 mm" });
     expect(classify(raw({ hourCodes: { 30: 61 } })).basis).toMatchObject({ source: "hourly", time: (START_S + 30 * HOUR_S) * 1000, text: "Slight rain", probability: 5 });
     expect(classify(raw({ hourCodes: { 13: 3 } })).basis).toMatchObject({ source: "block", time: (START_S + 12 * HOUR_S) * 1000, text: "overcast or fog hour" });
     expect(classify(raw({ baseCover: 90 })).basis).toMatchObject({ source: "block", text: "average cloud cover 90%" });

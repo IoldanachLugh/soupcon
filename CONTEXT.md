@@ -126,6 +126,16 @@ existing origin server rather than standing up anything new:
   - `extendedPeriods` (NWS gridpoint `forecast`, 12-hour periods) — drives
     the cloudy-vs-clear split (levels 4/5) once rain is ruled out for 48h.
 
+  A fourth NWS request, the raw gridpoint data (`/gridpoints/{office}/{x},{y}`,
+  `getSkyCover`), feeds only the Sources panel's 48-hour chart: its hourly
+  `skyCover` percentage is the number behind "Mostly Cloudy"/"Partly
+  Sunny", so the chart doesn't have to guess percentages from wording. It
+  is **not** part of the score and is only fetched while Sources is open
+  (cached 30 min). Its values come as ISO 8601 intervals
+  (`.../PT3H` = that value for 3 hours), expanded to hourly by
+  `expandGridValues`. Scoring from these numbers instead of the wording
+  was discussed and not done; the chart's note says it's for reference.
+
   Because `shortForecast`/`textDescription` are genuinely closer to free
   text than an alert's `event` field, the precipitation/cloudy/clear
   keyword lists in `soupcon.js` were checked against live `api.weather.gov`

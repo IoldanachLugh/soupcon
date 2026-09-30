@@ -25,7 +25,7 @@ always wins over rain later, which wins over no rain expected at all.
 
 ## Data sources
 
-- [api.weather.gov](https://www.weather.gov/documentation/services-web-api) — hourly forecast, extended forecast, and current observations
+- [api.weather.gov](https://www.weather.gov/documentation/services-web-api) — hourly forecast, extended forecast, current observations, and (for the Sources chart) hourly sky cover
 - [api.open-meteo.com](https://open-meteo.com/) — forecast for locations outside NWS coverage
 - [geocoding-api.open-meteo.com](https://open-meteo.com/en/docs/geocoding-api) — city search outside the US
 - [api.bigdatacloud.net](https://www.bigdatacloud.com/) — place name for a non-US browser-location lookup

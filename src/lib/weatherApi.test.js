@@ -4,6 +4,8 @@ import {
   getHourlyForecast,
   getCurrentConditions,
   getStationReadings,
+  getSkyCover,
+  expandGridValues,
   haversineMiles,
   selectObservationStations,
 } from "./weatherApi";
@@ -225,5 +227,54 @@ describe("selectObservationStations", () => {
   it("sorts stations without coordinates last, usable only toward the minimum", () => {
     const picked = selectObservationStations([{ id: "unknown" }, station("near", 0.1)], 40, -100);
     expect(picked).toEqual(["near", "unknown"]);
+  });
+});
+
+describe("expandGridValues", () => {
+  it("expands each ISO 8601 interval into one entry per hour", () => {
+    const hours = expandGridValues([
+      { validTime: "2026-09-30T12:00:00+00:00/PT1H", value: 42 },
+      { validTime: "2026-09-30T13:00:00+00:00/PT2H", value: 26 },
+      { validTime: "2026-09-30T15:00:00+00:00/P1DT1H", value: 60 },
+    ]);
+    const start = Date.parse("2026-09-30T12:00:00Z");
+    expect(hours).toHaveLength(1 + 2 + 25);
+    expect(hours.slice(0, 4)).toEqual([
+      { start, value: 42 },
+      { start: start + 3600000, value: 26 },
+      { start: start + 2 * 3600000, value: 26 },
+      { start: start + 3 * 3600000, value: 60 },
+    ]);
+    expect(hours.at(-1).start).toBe(start + 27 * 3600000);
+  });
+
+  it("skips unparseable entries and copes with missing input", () => {
+    expect(expandGridValues([{ validTime: "garbage", value: 1 }, { validTime: "2026-09-30T12:00:00Z/soon", value: 2 }])).toEqual([]);
+    expect(expandGridValues(undefined)).toEqual([]);
+  });
+});
+
+describe("getSkyCover", () => {
+  it("reads skyCover from the raw gridpoint URL NWS gives, as hourly values", async () => {
+    const fetchMock = stubFetch((url) => {
+      if (url.includes("/points/")) return Promise.resolve(jsonResponse({ properties: { ...POINTS.properties, forecastGridData: "https://nws.test/grid" } }));
+      if (url === "https://nws.test/grid") {
+        return Promise.resolve(jsonResponse({ properties: { skyCover: { values: [{ validTime: "2026-09-30T12:00:00+00:00/PT2H", value: 57 }] } } }));
+      }
+      throw new Error(`unexpected ${url}`);
+    });
+    const hours = await getSkyCover(11.111, 22.222);
+    expect(hours.map((hour) => hour.value)).toEqual([57, 57]);
+    expect(fetchMock.mock.calls.map(([url]) => url)).toContain("https://nws.test/grid");
+  });
+
+  it("falls back to the forecast URL minus /forecast when the gridpoint has no grid data URL", async () => {
+    const fetchMock = stubFetch((url) => {
+      if (url.includes("/points/")) return Promise.resolve(jsonResponse({ properties: { ...POINTS.properties, forecast: "https://nws.test/gridpoints/OKX/1,2/forecast" } }));
+      if (url === "https://nws.test/gridpoints/OKX/1,2") return Promise.resolve(jsonResponse({ properties: {} }));
+      throw new Error(`unexpected ${url}`);
+    });
+    expect(await getSkyCover(11.112, 22.223)).toEqual([]);
+    expect(fetchMock.mock.calls.map(([url]) => url)).toContain("https://nws.test/gridpoints/OKX/1,2");
   });
 });

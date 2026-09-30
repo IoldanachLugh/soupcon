@@ -36,11 +36,17 @@ Live at [soupcon.org](https://soupcon.org).
   Fri 2:00 PM - Chance Rain Showers, 38%"), since that can be up to 48
   hours out, past the rows listed below it. Then it lists every nearby
   station's latest reading (which one is used, which were skipped and
-  why) plus the first 12 hourly and 4 extended forecast periods the score
-  is computed from. Collapsed by default. For
+  why), a 48-hour chart of rain chance (filled area) and cloud cover
+  (line) with a dashed marker on the deciding hour and hover values (the
+  exact hourly rows sit in a collapsed "Hourly details" list under it), and
+  the 4 extended forecast periods. Collapsed by default. For
   locations outside the US (Open-Meteo, no stations) it shows the current
-  model values, hourly rows, the 12-hour cloud blocks and the daily outlook
-  instead.
+  model values, the same chart and hourly list, the 12-hour cloud blocks
+  and the daily outlook instead. The chart is display only: US cloud cover
+  is NWS's own hourly sky-cover percentage from the raw gridpoint data,
+  while the score still reads the forecast wording. It's drawn with
+  [uPlot](https://github.com/leeoniya/uPlot), which is only downloaded
+  (a separate ~23 KB gzipped chunk) when Sources is opened.
 - Has a printable recipe modal, one hamburger-menu item per recipe
   (currently Potsticker Soup, Senegalese Chicken Soup, and Lasagna Soup, extracted from
   the owner's own recipe wiki), that prints cleanly on its own,
@@ -176,6 +182,8 @@ src/
   styles.css                — all styling, semantically class-named
   lib/
     weatherApi.js            — fetch/network layer (NWS + ZIP lookup APIs)
+    forecastChart.js         — data for the Sources panel's 48-hour chart
+                                (both providers), uPlot-free and unit-tested
     wmoCodes.js              — WMO weather code -> readable label / precip type /
                                 cloudy flag (one table for classifier + Sources)
     soupconOpenMeteo.js      — normalizes Open-Meteo data and classifies it
@@ -218,6 +226,8 @@ src/
     SoupconMessage.jsx         — the condition status box
     StationDebugPanel.jsx      — "Sources" panel (raw station and
                                 forecast data behind the condition)
+    ForecastChart.jsx          — the 48-hour uPlot chart in Sources
+                                (lazy-loaded)
     AlertCard.jsx
     RecipeModal.jsx
     IOSInstallHelp.jsx
@@ -292,8 +302,9 @@ in place for full functionality:
 - **[api.weather.gov](https://www.weather.gov/documentation/services-web-api)**
   (National Weather Service) — hourly forecast, extended forecast, and
   current observations (all three drive the SOUPCON score), plus active
-  alerts (shown as an independent list, not part of the score). No API key
-  required.
+  alerts (shown as an independent list, not part of the score) and, only
+  while the Sources panel is open, the raw gridpoint data's hourly sky
+  cover for its chart. No API key required.
 - **[api.open-meteo.com](https://open-meteo.com/)** — current, hourly and
   daily forecast for points outside NWS coverage. No API key required; the
   free tier is for non-commercial use.
