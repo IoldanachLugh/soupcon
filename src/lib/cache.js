@@ -13,6 +13,9 @@ export const GRIDPOINT_CACHE_PREFIX = "soupcon_gridpoint_";
 export const HOURLY_FORECAST_CACHE_PREFIX = "soupcon_hourly_forecast_";
 export const EXTENDED_FORECAST_CACHE_PREFIX = "soupcon_extended_forecast_";
 export const OBSERVATION_CACHE_PREFIX = "soupcon_observation_";
+// Open-Meteo, the non-US fallback (SOUP_PLAN.md item 22): one response carries
+// current + hourly + daily data, so it gets a single cache entry.
+export const OPEN_METEO_CACHE_PREFIX = "soupcon_openmeteo_";
 
 // Gridpoint metadata (grid office/x/y, forecast URLs, location label) is as
 // stable as the zone lookup it replaces for labeling purposes -- same TTL.
@@ -25,6 +28,8 @@ export const EXTENDED_FORECAST_CACHE_TTL_MS = 2 * 60 * 60 * 1000;
 // "Is it raining right now" needs to be genuinely current -- same order of
 // magnitude as the existing alerts TTL.
 export const OBSERVATION_CACHE_TTL_MS = 5 * 60 * 1000;
+// Open-Meteo's `current` block updates every 15 minutes.
+export const OPEN_METEO_CACHE_TTL_MS = 15 * 60 * 1000;
 
 export function getCacheItem(key, ttlMs = CACHE_TTL_MS) {
   try {
@@ -77,6 +82,10 @@ export function makeObservationCacheKey(lat, lon) {
   return `${OBSERVATION_CACHE_PREFIX}${Number(lat).toFixed(3)},${Number(lon).toFixed(3)}`;
 }
 
+export function makeOpenMeteoCacheKey(lat, lon) {
+  return `${OPEN_METEO_CACHE_PREFIX}${Number(lat).toFixed(3)},${Number(lon).toFixed(3)}`;
+}
+
 // getCacheItem only evicts an expired entry when that exact key is read
 // again -- a zone/alerts cache key for a location the user never revisits
 // just sits in localStorage forever. Harmless individually, but with one
@@ -90,6 +99,7 @@ const TTL_MS_BY_PREFIX = {
   [HOURLY_FORECAST_CACHE_PREFIX]: HOURLY_FORECAST_CACHE_TTL_MS,
   [EXTENDED_FORECAST_CACHE_PREFIX]: EXTENDED_FORECAST_CACHE_TTL_MS,
   [OBSERVATION_CACHE_PREFIX]: OBSERVATION_CACHE_TTL_MS,
+  [OPEN_METEO_CACHE_PREFIX]: OPEN_METEO_CACHE_TTL_MS,
 };
 
 export function sweepExpiredCache() {

@@ -119,6 +119,31 @@ const PRECIP_WORDING = {
   },
 };
 
+const LEVEL_4_WORDING = {
+  title: "Cloudy and damp",
+  reason: "No rain is expected soon, but skies are staying cloudy or damp.",
+};
+const LEVEL_5_WORDING = {
+  title: "Clear and sunny",
+  reason: "Clear, sunny weather is expected for the next several days.",
+};
+
+// Builds the object classifySoupcon returns, shared with the Open-Meteo
+// classifier (soupconOpenMeteo.js) so both data sources produce identical
+// results and wording for the same level. `precipType` is only meaningful
+// for levels 1-3.
+export function soupconResult(level, precipType = null) {
+  if (level <= 3) {
+    return { level, label: `SOUPCON${level}`, precipType, ...PRECIP_WORDING[level][precipType] };
+  }
+  return {
+    level,
+    label: `SOUPCON${level}`,
+    precipType: null,
+    ...(level === 4 ? LEVEL_4_WORDING : LEVEL_5_WORDING),
+  };
+}
+
 function periodIndicatesCloudy(period) {
   let text = (period?.shortForecast || "").toLowerCase();
   for (const phrase of NOT_CLOUDY_PHRASES) {
@@ -204,20 +229,20 @@ export function classifySoupcon({
     : currentPeriodPrecipType(hourlyPeriods[0]);
 
   if (currentType) {
-    return { level: 1, label: "SOUPCON1", precipType: currentType, ...PRECIP_WORDING[1][currentType] };
+    return soupconResult(1, currentType);
   }
 
   // Level 2: precipitation somewhere in the next 12 hours.
   const next12Type = firstPrecipType(hourlyPeriods.slice(0, 12));
   if (next12Type) {
-    return { level: 2, label: "SOUPCON2", precipType: next12Type, ...PRECIP_WORDING[2][next12Type] };
+    return soupconResult(2, next12Type);
   }
 
   // Level 3: precipitation somewhere in the next 48 hours (already known
   // not to be in the next 12, from the check above).
   const next48Type = firstPrecipType(hourlyPeriods.slice(0, 48));
   if (next48Type) {
-    return { level: 3, label: "SOUPCON3", precipType: next48Type, ...PRECIP_WORDING[3][next48Type] };
+    return soupconResult(3, next48Type);
   }
 
   // Levels 4/5: no precipitation expected soon. Look at the near-term
@@ -234,22 +259,10 @@ export function classifySoupcon({
   // forecast, the same fallthrough trap as CONTEXT.md's snow gotcha.
   const nearTerm = extendedPeriods.slice(0, 4);
   if (nearTerm.some((period) => periodIndicatesCloudy(period) || periodPrecipType(period))) {
-    return {
-      level: 4,
-      label: "SOUPCON4",
-      precipType: null,
-      title: "Cloudy and damp",
-      reason: "No rain is expected soon, but skies are staying cloudy or damp.",
-    };
+    return soupconResult(4);
   }
 
-  return {
-    level: 5,
-    label: "SOUPCON5",
-    precipType: null,
-    title: "Clear and sunny",
-    reason: "Clear, sunny weather is expected for the next several days.",
-  };
+  return soupconResult(5);
 }
 
 // Copied from the old frtcon.js (deleted in SOUP_PLAN.md item 5) rather

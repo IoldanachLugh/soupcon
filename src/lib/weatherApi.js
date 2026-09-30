@@ -103,7 +103,7 @@ export async function fetchJson(url, { signal } = {}) {
 // falls back to the same generic "try again" message regardless of source.
 // Returns null for anything that isn't an HttpError, so the caller knows to
 // fall back to its own handling instead.
-function friendlyMessage(err, notFoundMessage) {
+export function friendlyMessage(err, notFoundMessage) {
   if (!(err instanceof HttpError)) return null;
 
   console.error(err.timeout ? `Request timed out for ${err.url}` : `Request failed (${err.status}) for ${err.url}`);

@@ -123,6 +123,13 @@ src/
   styles.css                — all styling, semantically class-named
   lib/
     weatherApi.js            — fetch/network layer (NWS + ZIP lookup APIs)
+    wmoCodes.js              — WMO weather code -> readable label / precip type /
+                                cloudy flag (one table for classifier + Sources)
+    soupconOpenMeteo.js      — normalizes Open-Meteo data and classifies it
+                                (classifyOpenMeteo), not yet wired into the app
+    openMeteoApi.js          — Open-Meteo fetch layer (non-US fallback,
+                                not yet wired into the app -- see
+                                SOUP_PLAN.md item 22)
     cache.js                 — localStorage caching helpers (TTL-based)
     soupcon.js                — pure classification logic (classifySoupcon,
                                 pickRandomItems) — no React/DOM dependency,
