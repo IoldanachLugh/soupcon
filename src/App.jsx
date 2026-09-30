@@ -399,7 +399,7 @@ export default function App() {
 
     if (!navigator.geolocation) {
       setStatusMessage("");
-      setError("This browser does not support geolocation. Try entering a ZIP code.");
+      setError("This browser does not support geolocation. Try entering a US ZIP code.");
       return;
     }
 
@@ -428,13 +428,13 @@ export default function App() {
       if (geoError?.code === geoError?.PERMISSION_DENIED) {
         setError(
           "Location access is turned off for this site. On iPhone: tap the \"Aa\" icon in the address bar, " +
-            "Website Settings, and set Location to Ask or Allow, then try again — or just enter a ZIP code below."
+            "Website Settings, and set Location to Ask or Allow, then try again — or just enter a US ZIP code below."
         );
         return;
       }
 
       const message = geoError?.message || "Unable to read browser location.";
-      setError(`${message} Try entering a ZIP code instead.`);
+      setError(`${message} Try entering a US ZIP code instead.`);
     };
 
     navigator.geolocation.getCurrentPosition(
@@ -732,20 +732,20 @@ export default function App() {
 
             <form onSubmit={handleZipLookup} className="button-row">
               <label htmlFor="soupcon-zip-input" className="visually-hidden-label">
-                ZIP code
+                US ZIP code
               </label>
               <input
                 id="soupcon-zip-input"
                 className="zip-input"
                 type="text"
                 inputMode="numeric"
-                placeholder="Enter ZIP code"
-                aria-label="ZIP code"
+                placeholder="Enter US ZIP code"
+                aria-label="US ZIP code"
                 value={zip}
                 onChange={(e) => setZip(e.target.value.replace(/\D/g, "").slice(0, 5))}
               />
               <button className="btn-secondary" type="submit" disabled={loading}>
-                {loading && source === "zip" ? "Looking up..." : "Search ZIP"}
+                {loading && source === "zip" ? "Looking up..." : "Search US ZIP"}
               </button>
               {source === "url" && URL_LOCATION ? (
                 <span className="custom-location-note">
