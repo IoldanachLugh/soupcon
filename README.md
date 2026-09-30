@@ -31,9 +31,13 @@ Live at [soupcon.org](https://soupcon.org).
   the SOUPCON score itself (the score is forecast-based now, not
   alert-based — see "The SOUPCON scale" below).
 - Has a collapsible "Sources" section
-  under the alerts that lists every nearby station's latest reading
-  (which one is used, which were skipped and why) plus the hourly/extended
-  forecast periods the score is computed from. Collapsed by default. For
+  under the alerts. It leads with a "Decided by" line naming the one
+  reading that set the level (e.g. "SOUPCON3 decided by: hourly forecast
+  Fri 2:00 PM - Chance Rain Showers, 38%"), since that can be up to 48
+  hours out, past the rows listed below it. Then it lists every nearby
+  station's latest reading (which one is used, which were skipped and
+  why) plus the first 12 hourly and 4 extended forecast periods the score
+  is computed from. Collapsed by default. For
   locations outside the US (Open-Meteo, no stations) it shows the current
   model values, hourly rows, the 12-hour cloud blocks and the daily outlook
   instead.

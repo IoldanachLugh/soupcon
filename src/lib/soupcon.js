@@ -132,16 +132,38 @@ const LEVEL_5_WORDING = {
 // classifier (soupconOpenMeteo.js) so both data sources produce identical
 // results and wording for the same level. `precipType` is only meaningful
 // for levels 1-3.
-export function soupconResult(level, precipType = null) {
+//
+// `basis` is the one reading that decided the level, for the Sources
+// panel's "Decided by" line -- recorded here rather than re-derived in the
+// panel, so it can't drift from what the classifier actually matched.
+// Shape: { source, time, name, text, probability }, where `source` is
+// "observation", "hourly" or "extended" (NWS) or "current", "hourly" or
+// "block" (Open-Meteo); unused fields are null. Level 5 has no basis (null):
+// it's the "nothing else matched" default.
+export function soupconResult(level, precipType = null, basis = null) {
   if (level <= 3) {
-    return { level, label: `SOUPCON${level}`, precipType, ...PRECIP_WORDING[level][precipType] };
+    return { level, label: `SOUPCON${level}`, precipType, basis, ...PRECIP_WORDING[level][precipType] };
   }
   return {
     level,
     label: `SOUPCON${level}`,
     precipType: null,
+    basis,
     ...(level === 4 ? LEVEL_4_WORDING : LEVEL_5_WORDING),
   };
+}
+
+export function makeBasis(source, { time = null, name = null, text = null, probability = null } = {}) {
+  return { source, time, name, text, probability };
+}
+
+function periodBasis(source, period) {
+  return makeBasis(source, {
+    time: period.startTime ?? null,
+    name: period.name ?? null,
+    text: period.shortForecast ?? null,
+    probability: period.probabilityOfPrecipitation?.value ?? null,
+  });
 }
 
 function periodIndicatesCloudy(period) {
@@ -189,10 +211,11 @@ function dropEndedPeriods(periods, now) {
   });
 }
 
-function firstPrecipType(periods) {
+// The first period with precipitation, and its type -- or null.
+function firstPrecip(periods) {
   for (const period of periods) {
     const type = periodPrecipType(period);
-    if (type) return type;
+    if (type) return { type, period };
   }
   return null;
 }
@@ -229,20 +252,23 @@ export function classifySoupcon({
     : currentPeriodPrecipType(hourlyPeriods[0]);
 
   if (currentType) {
-    return soupconResult(1, currentType);
+    const basis = observation
+      ? makeBasis("observation", { time: observation.timestamp ?? null, text: observation.textDescription || null })
+      : periodBasis("hourly", hourlyPeriods[0]);
+    return soupconResult(1, currentType, basis);
   }
 
   // Level 2: precipitation somewhere in the next 12 hours.
-  const next12Type = firstPrecipType(hourlyPeriods.slice(0, 12));
-  if (next12Type) {
-    return soupconResult(2, next12Type);
+  const next12 = firstPrecip(hourlyPeriods.slice(0, 12));
+  if (next12) {
+    return soupconResult(2, next12.type, periodBasis("hourly", next12.period));
   }
 
   // Level 3: precipitation somewhere in the next 48 hours (already known
   // not to be in the next 12, from the check above).
-  const next48Type = firstPrecipType(hourlyPeriods.slice(0, 48));
-  if (next48Type) {
-    return soupconResult(3, next48Type);
+  const next48 = firstPrecip(hourlyPeriods.slice(0, 48));
+  if (next48) {
+    return soupconResult(3, next48.type, periodBasis("hourly", next48.period));
   }
 
   // Levels 4/5: no precipitation expected soon. Look at the near-term
@@ -258,8 +284,9 @@ export function classifySoupcon({
   // weather is expected for the next several days" with rain in the
   // forecast, the same fallthrough trap as CONTEXT.md's snow gotcha.
   const nearTerm = extendedPeriods.slice(0, 4);
-  if (nearTerm.some((period) => periodIndicatesCloudy(period) || periodPrecipType(period))) {
-    return soupconResult(4);
+  const cloudyPeriod = nearTerm.find((period) => periodIndicatesCloudy(period) || periodPrecipType(period));
+  if (cloudyPeriod) {
+    return soupconResult(4, null, periodBasis("extended", cloudyPeriod));
   }
 
   return soupconResult(5);

@@ -124,17 +124,27 @@ describe("classifyOpenMeteo", () => {
     expect(classify(response).level).toBe(5);
   });
 
+  // Everything but `basis`, which names each provider's own reading.
   it("returns exactly what classifySoupcon does for the same level", () => {
+    const withoutBasis = ({ basis, ...rest }) => rest; // eslint-disable-line no-unused-vars
     const rainy = classify(raw({ hourCodes: { 2: 61 } }));
     const nws = classifySoupcon({
       hourlyPeriods: [{ shortForecast: "Rain", endTime: "2999-01-01T00:00:00Z" }],
       observation: { textDescription: "Clear" },
       now: 0,
     });
-    expect(rainy).toEqual({ ...nws, level: 2, label: "SOUPCON2", title: "Rain is on its way", reason: "Rain is expected within the next 12 hours." });
-    expect(classify(raw({ baseCode: 3 }))).toEqual(
-      classifySoupcon({ extendedPeriods: [{ shortForecast: "Cloudy", endTime: "2999-01-01T00:00:00Z" }], now: 0 })
+    expect(withoutBasis(rainy)).toEqual({ ...withoutBasis(nws), level: 2, label: "SOUPCON2", title: "Rain is on its way", reason: "Rain is expected within the next 12 hours." });
+    expect(withoutBasis(classify(raw({ baseCode: 3 })))).toEqual(
+      withoutBasis(classifySoupcon({ extendedPeriods: [{ shortForecast: "Cloudy", endTime: "2999-01-01T00:00:00Z" }], now: 0 }))
     );
+  });
+
+  it("records the reading that decided the level as its basis", () => {
+    expect(classify(raw({ current: { rain: 0.4, weather_code: 61 } })).basis).toMatchObject({ source: "current", time: NOW, text: "Slight rain" });
+    expect(classify(raw({ hourCodes: { 30: 61 } })).basis).toMatchObject({ source: "hourly", time: (START_S + 30 * HOUR_S) * 1000, text: "Slight rain", probability: 5 });
+    expect(classify(raw({ hourCodes: { 13: 3 } })).basis).toMatchObject({ source: "block", time: (START_S + 12 * HOUR_S) * 1000, text: "overcast or fog hour" });
+    expect(classify(raw({ baseCover: 90 })).basis).toMatchObject({ source: "block", text: "average cloud cover 90%" });
+    expect(classify(raw()).basis).toBeNull();
   });
 });
 

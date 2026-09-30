@@ -3,7 +3,7 @@
 // cloud-cover numbers instead of NWS forecast text. Pure functions, no
 // network or React -- fed by openMeteoApi.js's raw response.
 import { describeWmoCode } from "./wmoCodes";
-import { soupconResult } from "./soupcon";
+import { soupconResult, makeBasis } from "./soupcon";
 
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
@@ -76,8 +76,8 @@ export function currentPrecipType(current) {
   return current.precipitation > 0 ? "rain" : null;
 }
 
-function firstPrecipType(rows) {
-  return rows.find((row) => row.precipType)?.precipType ?? null;
+function rowBasis(row) {
+  return makeBasis("hourly", { time: row.start, text: row.label, probability: row.precipProbability });
 }
 
 // The 12-hour blocks (up to four) the level 4 vs. 5 split is decided from,
@@ -118,17 +118,27 @@ export function upcomingRows(rows, now = Date.now()) {
 export function classifyOpenMeteo({ forecast, now = Date.now() } = {}) {
   const hourly = upcomingRows(forecast?.hourly, now);
 
-  const currentType = currentPrecipType(forecast?.current);
-  if (currentType) return soupconResult(1, currentType);
+  const current = forecast?.current;
+  const currentType = currentPrecipType(current);
+  if (currentType) return soupconResult(1, currentType, makeBasis("current", { time: current.time, text: current.label }));
 
-  const next12Type = firstPrecipType(hourly.slice(0, 12));
-  if (next12Type) return soupconResult(2, next12Type);
+  const next12 = hourly.slice(0, 12).find((row) => row.precipType);
+  if (next12) return soupconResult(2, next12.precipType, rowBasis(next12));
 
-  const next48Type = firstPrecipType(hourly.slice(0, 48));
-  if (next48Type) return soupconResult(3, next48Type);
+  const next48 = hourly.slice(0, 48).find((row) => row.precipType);
+  if (next48) return soupconResult(3, next48.precipType, rowBasis(next48));
 
   // Precipitation in the four blocks would already have matched level 3
   // above (the blocks cover the same 48 rows), so only cloud cover is
   // checked here.
-  return cloudBlocks(hourly).some((block) => block.cloudy) ? soupconResult(4) : soupconResult(5);
+  const cloudyBlock = cloudBlocks(hourly).find((block) => block.cloudy);
+  if (!cloudyBlock) return soupconResult(5);
+  return soupconResult(
+    4,
+    null,
+    makeBasis("block", {
+      time: cloudyBlock.start,
+      text: cloudyBlock.hasCloudyCode ? "overcast or fog hour" : `average cloud cover ${Math.round(cloudyBlock.averageCover)}%`,
+    })
+  );
 }

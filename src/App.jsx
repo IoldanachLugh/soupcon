@@ -1060,7 +1060,7 @@ export default function App() {
               </div>
             ) : null}
 
-            <StationDebugPanel result={result} />
+            <StationDebugPanel result={result} soupcon={soupcon} />
           </div>
         ) : null}
       </div>

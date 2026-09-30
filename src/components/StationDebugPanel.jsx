@@ -19,6 +19,44 @@ function timeLabel(value) {
   return Number.isNaN(t) ? "?" : new Date(t).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 }
 
+// Levels 2-3 can be decided by an hour up to two days out, so the day matters.
+function dayTimeLabel(value) {
+  const t = typeof value === "number" ? value : Date.parse(value);
+  return Number.isNaN(t) ? "?" : new Date(t).toLocaleString([], { weekday: "short", hour: "numeric", minute: "2-digit" });
+}
+
+const BASIS_SOURCES = {
+  observation: "station observation",
+  current: "model estimate",
+  hourly: "hourly forecast",
+  extended: "extended forecast",
+  block: "12-hour cloud block from",
+};
+
+// The "Decided by" line: the one reading the classifier matched (see
+// soupconResult's `basis`). The hourly/extended lists below only show the
+// first few periods, but levels 2-3 look 48 hours ahead -- without this
+// line a level 3 is decided by an hour the panel never shows.
+export function DecidedBy({ soupcon }) {
+  if (!soupcon) return null;
+  const { basis } = soupcon;
+  let detail;
+  if (!basis) {
+    detail = "nothing rainy or cloudy in the next 48 hours (the clear default)";
+  } else {
+    const when = basis.name || (basis.time != null ? dayTimeLabel(basis.time) : null);
+    const what = [basis.text || "(no description)", typeof basis.probability === "number" ? `${basis.probability}%` : null]
+      .filter(Boolean)
+      .join(", ");
+    detail = `${[BASIS_SOURCES[basis.source] ?? basis.source, when].filter(Boolean).join(" ")} - ${what}`;
+  }
+  return (
+    <p className="nws-alert-area-desc station-debug-decided">
+      {soupcon.label} decided by: <strong>{detail}</strong>
+    </p>
+  );
+}
+
 function ageLabel(iso) {
   const t = Date.parse(iso);
   if (Number.isNaN(t)) return "?";
@@ -49,7 +87,7 @@ function percent(value) {
   return typeof value === "number" ? `${Math.round(value)}%` : "n/a";
 }
 
-export function OpenMeteoSources({ forecast }) {
+export function OpenMeteoSources({ forecast, soupcon }) {
   const { current } = forecast;
   const hourly = upcomingRows(forecast.hourly);
   const blocks = cloudBlocks(hourly);
@@ -57,6 +95,7 @@ export function OpenMeteoSources({ forecast }) {
 
   return (
     <div className="nws-alert-card">
+      <DecidedBy soupcon={soupcon} />
       <h3 className="station-debug-header">Current conditions (model estimate)</h3>
       <p className="nws-alert-area-desc">
         Outside the US there are no station readings; Open-Meteo's own model estimate decides level 1. Used for level 1:{" "}
@@ -108,7 +147,7 @@ export function OpenMeteoSources({ forecast }) {
   );
 }
 
-export function StationDebugPanel({ result }) {
+export function StationDebugPanel({ result, soupcon }) {
   const isOpenMeteo = result.provider === PROVIDER_OPEN_METEO;
   const [open, setOpen] = useState(false);
   const [readings, setReadings] = useState(null);
@@ -146,10 +185,11 @@ export function StationDebugPanel({ result }) {
         Sources <span aria-hidden="true">{open ? "\u2212" : "+"}</span>
       </button>
 
-      {open && isOpenMeteo ? <OpenMeteoSources forecast={result.openMeteo} /> : null}
+      {open && isOpenMeteo ? <OpenMeteoSources forecast={result.openMeteo} soupcon={soupcon} /> : null}
 
       {open && !isOpenMeteo ? (
         <div className="nws-alert-card">
+          <DecidedBy soupcon={soupcon} />
           <h3 className="station-debug-header">Station observations</h3>
           <p className="nws-alert-area-desc">
             Nearest usable reading wins level 1. Used for level 1:{" "}

@@ -684,6 +684,10 @@ div[role="dialog"] {
   margin-top: 0;
 }
 
+.station-debug-decided {
+  margin-top: 0;
+}
+
 .station-debug-list {
   margin: 8px 0 0;
   padding-left: 20px;

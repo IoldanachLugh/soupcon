@@ -334,6 +334,37 @@ describe("classifySoupcon", () => {
   });
 });
 
+describe("classifySoupcon basis (the Sources panel's 'Decided by' line)", () => {
+  it("records the observation that decided level 1", () => {
+    const result = classifySoupcon({ observation: { textDescription: "Light Rain", timestamp: "2026-09-30T15:45:00Z" } });
+    expect(result.basis).toEqual({ source: "observation", time: "2026-09-30T15:45:00Z", name: null, text: "Light Rain", probability: null });
+  });
+
+  it("records the current hourly period when level 1 falls back to it", () => {
+    const result = classifySoupcon({ hourlyPeriods: [{ ...hourlyPeriod("Rain", 80), startTime: "2026-09-30T16:00:00-04:00" }] });
+    expect(result.basis).toMatchObject({ source: "hourly", time: "2026-09-30T16:00:00-04:00", text: "Rain", probability: 80 });
+  });
+
+  // The ZIP 12577 case that prompted this: level 3 from "Chance Rain
+  // Showers" 46 hours out, past the 12 hourly rows the panel lists.
+  it("records the first rainy hour past 12 for level 3", () => {
+    const hourly = [...clearHours(46), { ...hourlyPeriod("Chance Rain Showers", 38), startTime: "fri-2pm" }, hourlyPeriod("Chance Rain Showers", 38)];
+    const result = classifySoupcon({ hourlyPeriods: hourly, observation: { textDescription: "Partly Cloudy" } });
+    expect(result.level).toBe(3);
+    expect(result.basis).toMatchObject({ source: "hourly", time: "fri-2pm", text: "Chance Rain Showers", probability: 38 });
+  });
+
+  it("records the first cloudy extended period for level 4, and nothing for level 5", () => {
+    const extended = [
+      { name: "Tonight", shortForecast: "Mostly Clear" },
+      { name: "Thursday", shortForecast: "Mostly Cloudy" },
+    ];
+    const cloudy = classifySoupcon({ hourlyPeriods: clearHours(48), extendedPeriods: extended });
+    expect(cloudy.basis).toMatchObject({ source: "extended", name: "Thursday", text: "Mostly Cloudy" });
+    expect(classifySoupcon({ hourlyPeriods: clearHours(48), extendedPeriods: [extended[0]] }).basis).toBeNull();
+  });
+});
+
 describe("day/night forecast wording", () => {
   // NWS phrases the same sky condition differently by time of day (e.g.
   // "Sunny" during the day vs. "Clear"/"Mostly Clear" at night for a

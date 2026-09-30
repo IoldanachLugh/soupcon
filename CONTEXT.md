@@ -148,7 +148,9 @@ existing origin server rather than standing up anything new:
     WMO weather codes (`wmoCodes.js`, one table for the classifier *and* the
     Sources panel text) and cloud cover, and builds its result through the
     same `soupconResult` helper as `classifySoupcon`, so both providers give
-    identical wording per level. Design calls agreed with the owner: the
+    identical wording per level. (Results also carry a `basis`, the reading
+    that decided the level, for the Sources panel's "Decided by" line; that
+    field is provider-specific by design and the parity test excludes it.) Design calls agreed with the owner: the
     level 4 vs. 5 window is the same ~48 hours as NWS, read from the hourly
     rows in four 12-hour blocks (cloudy = an overcast/fog hour, or average
     cover >= 70%; the 70% is an estimate of NWS's "Mostly Cloudy" boundary,

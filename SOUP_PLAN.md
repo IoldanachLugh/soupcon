@@ -390,6 +390,12 @@ Steps:
 - **Found:** `runLookupFromCoordinates`/`lookupWeather`'s `skipCache` option was never passed as true (and on the NWS path only reached alerts). **Removed per owner** from `runLookupFromCoordinates`, `lookupWeather` and `lookupOpenMeteo`; the per-source API functions keep theirs, since `refreshWeather` uses it. Step 6's note in item 22 describes the original signature. Lint, 145/145 tests and build pass.
 - Lint, 143/143 tests and build pass. The UI changes are JSX conditions only, not checked in a browser.
 
+### 26. Sources panel "Decided by" line — ✅ FIXED
+
+- **Ask (per owner, 2026-09-30):** ZIP 12577 showed SOUPCON3 while every row in Sources looked dry. The level was right: NWS had "Chance Rain Showers" (38%) at Fri 2-3 PM, hours 47-48 of the 48-hour window. But Sources lists only the first 12 hourly and 4 extended periods, so whatever decides a level 3 is never shown.
+- **Done:** `soupconResult` takes a third argument, `basis` (`{ source, time, name, text, probability }`), the one reading the classifier matched. Both `classifySoupcon` (observation / hourly / extended period) and `classifyOpenMeteo` (current model values / hourly row / 12-hour cloud block) fill it in; level 5 has `basis: null`. It's recorded by the classifier rather than recomputed in the panel so the two can't drift. `StationDebugPanel` now takes the `soupcon` result from `App.jsx`, and a new `DecidedBy` component shows it at the top of both providers' Sources content, e.g. "SOUPCON3 decided by: hourly forecast Fri 2:00 PM - Chance Rain Showers, 38%". The item 22 parity test ("returns exactly what classifySoupcon does") now compares results without `basis`, which is provider-specific. New tests: basis per level in `soupcon.test.js` and `soupconOpenMeteo.test.js`, `DecidedBy` rendering in `StationDebugPanel.test.jsx`. Lint, 153/153 tests and build pass. **Verified against live NWS data** for 12577 (gridpoint OKX/24,75): the rendered line matches the example above.
+- **Not changed:** the number of listed hourly/extended rows; and the scoring rule that any rain wording, even a low "Chance", counts for levels 2-3. Raising that bar was offered to the owner as a separate policy decision. Not checked in a browser.
+
 ---
 
 ## Suggested order
@@ -402,9 +408,9 @@ Steps:
 6. **#10** (docs rewrite, once there's a stable thing to document)
 7. **#12 + #13** (infra + launch — last, and gated on domain registration)
 
-## Status (updated 2026-09-30, after item 25)
+## Status (updated 2026-09-30, after item 26)
 
-The rebuild (items 1-11) and infra/launch (12-13, done by the owner) are complete and `soupcon.org` is live. Items 14-25 are post-launch fixes and features (including worldwide weather via Open-Meteo, item 22, and city search, item 24), all done. What's left:
+The rebuild (items 1-11) and infra/launch (12-13, done by the owner) are complete and `soupcon.org` is live. Items 14-26 are post-launch fixes and features (including worldwide weather via Open-Meteo, item 22, and city search, item 24), all done. What's left:
 
 - **Worldwide follow-ups (optional, from item 22):** check a real snow forecast in the Open-Meteo path when one exists (the snow codes are unit-tested only), and decide whether `?lat=&lon=` places should get a name without the reverse geocoder.
 
