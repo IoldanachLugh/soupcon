@@ -1,31 +1,34 @@
-# Instructions for Claude
+# Working on SOUPCON
 
-At the start of any session in this repo, before making changes, read:
+> Shared for portfolio & demonstration purposes. All rights reserved.
 
-1. **`README.md`** — what the app does, how it's built, project structure.
-2. **`CONTEXT.md`** — infrastructure, deployment, decisions made and why,
-   known gotchas, shelved work. Anything not obvious from the code alone
-   lives here. Read this before touching deployment, the service worker,
-   or anything infrastructure-related.
-3. **`FRTCON_PLAN.md`** — a code-review findings/fix list for the original FRTCON
-   codebase, **superseded** by the SOUPCON rebuild (see its own banner
-   note). Most of what it references no longer exists in this repo. Kept
-   for historical record, not as a guide to current structure — don't
-   re-derive decisions from it without checking whether `SOUP_PLAN.md`
-   already superseded that area.
-4. **`SOUP_PLAN.md`** — the current running plan (same "Done:"-note
-   convention as `FRTCON_PLAN.md` had): the FRTCON → SOUPCON rebrand/rebuild,
-   worked one item at a time. Read its "Decisions locked in" section and
-   each item's **Done:** note before re-touching an area it already
-   covers, so you don't redo work or reverse a deliberate decision (e.g.
-   the rain/cloud keyword lists, the palette choice, or what's
-   deliberately deferred to a later item). Unmarked items are still open.
+This project was built with an AI pair programmer (Claude Code reads this
+file automatically). The same notes apply to anyone picking up the code.
 
-## Keeping these in sync
+## Getting oriented
 
-When a change makes something in `README.md` or `CONTEXT.md` inaccurate,
-update it as part of that change, not as separate cleanup later. When
-fixing or deciding against something from `SOUP_PLAN.md`, mark it and add a
-**Done:** note the same way the existing entries do (what changed, how it
-was verified, anything explicitly left out of scope). `FRTCON_PLAN.md` itself is
-frozen/historical — don't add new entries to it.
+The docs are worth reading in this order:
+
+1. **`README.md`** covers what the app does, how it's built, and how the
+   project is laid out.
+2. **`CONTEXT.md`** explains why things are the way they are: design
+   decisions, hosting, lessons learned, and ideas set aside for later.
+   Read it before changing deployment, the service worker, or anything
+   else infrastructure-related.
+3. **`SOUP_PLAN.md`** is the build log for the FRTCON → SOUPCON rebuild
+   and all the work since, one numbered item at a time. If you're about
+   to change an area it covers, read that item first. Several choices that
+   look arbitrary were made on purpose, like the rain and cloud keyword
+   lists, the color palette, and what was left out of scope.
+4. **`FRTCON_PLAN.md`** is a code review of the original FRTCON app,
+   written before the rebuild. Most of the files it mentions no longer
+   exist. It's kept as history, so check `SOUP_PLAN.md` before relying on
+   anything in it.
+
+## Keeping the docs current
+
+- If a change makes `README.md` or `CONTEXT.md` wrong, update them in the
+  same change.
+- New work goes in `SOUP_PLAN.md` as a numbered item, with a short note on
+  what changed, how it was checked, and anything left out on purpose.
+- `FRTCON_PLAN.md` is finished. Don't add to it.

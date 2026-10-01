@@ -1,5 +1,7 @@
 # SOUPCON — Soup Conditions
 
+> Shared for portfolio & demonstration purposes. All rights reserved.
+
 A small weather app that checks the live National Weather Service forecast
 and current conditions for your location and translates them into a **Soup
 Condition (SOUPCON)** level — a tongue-in-cheek severity scale for "should I
@@ -196,8 +198,7 @@ src/
                                 the lookup timeouts
     weatherProvider.js       — picks NWS (US) or Open-Meteo (elsewhere) per lookup:
                                 lookupWeather, refreshWeather, classifyLookup
-    openMeteoApi.js          — Open-Meteo fetch layer (non-US fallback,
-                                see SOUP_PLAN.md item 22)
+    openMeteoApi.js          — Open-Meteo fetch layer (non-US fallback)
     cache.js                 — localStorage caching helpers (TTL-based)
     soupcon.js                — pure classification logic (classifySoupcon,
                                 pickRandomItems) — no React/DOM dependency,
@@ -244,8 +245,8 @@ npm run test      # run the classification test suite once
 
 ## Deployment notes
 
-This app is served as static files (currently via Apache, behind a
-Cloudflare Tunnel). A few things beyond the built `dist/` output need to be
+This app is served as static files (currently via Apache, behind
+Cloudflare). A few things beyond the built `dist/` output need to be
 in place for full functionality:
 
 - **PWA install support** relies on `manifest.json`, `sw.js`, `icon-192.png`,
@@ -370,3 +371,24 @@ be the right place to add proper NWS attribution.
   ingredients or rainy-day gear, potentially using Walmart's Recipes API
   against the actual recipe ingredient list. Requires a server-side
   credential proxy either way.
+
+## How it was built
+
+SOUPCON started as a fork of [FRTCON](https://frtcon.com), a winter-storm
+version of the same idea, and was rebuilt around rain. I made the product
+and architecture decisions, set up the hosting, and reviewed and tested the
+work; much of the code was written with Claude (Anthropic's AI assistant)
+as a pair programmer. The rest of the docs cover the details:
+
+- [`CONTEXT.md`](CONTEXT.md): design decisions, hosting notes, lessons
+  learned, and ideas set aside for later.
+- [`SOUP_PLAN.md`](SOUP_PLAN.md): the build log for the FRTCON → SOUPCON
+  rebuild and everything after it, item by item. Code comments that say
+  "SOUP_PLAN.md item N" point here.
+- [`FRTCON_PLAN.md`](FRTCON_PLAN.md): an earlier code review of the
+  original FRTCON app. Mostly historical now.
+
+---
+
+© Jeffrey Morton. Shared for portfolio & demonstration purposes. All rights
+reserved. See [`LICENSE`](LICENSE).

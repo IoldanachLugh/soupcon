@@ -1,554 +1,301 @@
-# SOUPCON — Development Context
+# SOUPCON — Design Notes
 
-This document exists to re-establish context for a new development session
-(with Claude or otherwise) without needing to replay prior conversation
-history. It covers infrastructure, decisions made and why, known gotchas,
-and shelved work — things that aren't visible just from reading the code.
-For what the app *does* and how the code is organized, see `README.md`.
+> Shared for portfolio & demonstration purposes. All rights reserved.
 
-## What this project is
+These notes cover the things you can't see by reading the code: why it's
+built the way it is, how it's hosted, what went wrong along the way, and
+what was set aside for later. For what the app does and how the code is
+organized, see `README.md`.
+
+## Background
 
 SOUPCON ("Soup Conditions") is a fork of [frtcon.com](https://frtcon.com)
-("French Toast Conditions"), rebranded and rebuilt around a different
-concept: instead of classifying winter-storm alert severity, it classifies
-the rain outlook (currently raining / rain soon / rain later / cloudy /
-clear) into a 5-level "should I make soup and stay home" scale. It kept
-FRTCON's plumbing (React/Vite, no backend, NWS-API-driven, PWA install
-flow, the general code layout) but replaced the classification logic, data
-sources, content, and branding. `frtcon.com` itself is untouched and
-continues to exist separately — this is a new, independent site at
-soupcon.org, not a migration of the old one. The rebuild was done item by
-item against `SOUP_PLAN.md` (a running plan in the same spirit as
-`FRTCON_PLAN.md`, but for this build-out rather than a code review) — read that
-file's "Decisions locked in" section and its per-item "Done:" notes before
-re-touching anything the rebuild already covered, for the same reason
-`FRTCON_PLAN.md`'s own "Done:" notes matter.
+("French Toast Conditions"). FRTCON rates winter-storm alerts. SOUPCON
+rates the rain outlook instead (raining now, rain soon, rain later, cloudy,
+clear) on a 5-level "should I make soup and stay home?" scale.
 
-The owner is primarily a backend developer using this project (both as
-FRTCON and now as this fork) to build frontend and AI-assisted development
-experience — development has been done largely via Claude, with the owner
-directing architecture, reviewing/testing, and owning infrastructure and
-branding decisions (the SOUPCON name/scale definition, the icon artwork,
-and the color palette were all the owner's own calls, not Claude's).
+The fork kept FRTCON's plumbing: React and Vite, no backend, the National
+Weather Service API, the installable PWA, and the general code layout. The
+classification logic, data sources, content and branding are all new.
+frtcon.com still runs as its own separate site. The rebuild went one item
+at a time, logged in `SOUP_PLAN.md`.
 
-## Infrastructure
+I'm mainly a backend developer, and I used FRTCON and then SOUPCON to get
+more frontend experience and to practice AI-assisted development. Claude
+wrote much of the code. I made the architecture and product decisions,
+reviewed and tested the work, and handled the hosting and branding (the
+name, the scale, the icon artwork, and the color palette).
 
-**Live.** `soupcon.org` is deployed and serving real traffic through the
-same Cloudflare Tunnel frtcon.com uses (tunnel `dd742d1d-...`), reusing the
-existing origin server rather than standing up anything new:
+## Hosting
 
-- **Tunnel config** (`cloudflared`'s `config.yml`) has one ingress rule per
-  hostname, each pointing at a different loopback port on the origin:
-  `thoughtleap.com`/`www.thoughtleap.com` → `127.0.0.1:8080`,
-  `frtcon.com`/`www.frtcon.com`/`frtcon.thoughtleap.com` → `127.0.0.1:8081`,
-  and `soupcon.org`/`www.soupcon.org`/`soupcon.thoughtleap.com` →
-  `127.0.0.1:8082`. (`thoughtleap.com` is the owner's own personal/portfolio
-  domain, sharing this same origin and tunnel — not previously documented
-  here since it predates this fork.) A catch-all `service: http_status:404`
-  rule is last, per cloudflared's requirement.
-- **No TLS on the origin at all, by design.** Every one of those `service:`
-  URLs is `http://`, not `https://` — cloudflared speaks plain HTTP to
-  Apache on all three ports. This is safe specifically because none of
-  these ports are exposed publicly (loopback-only, no port forwarding, no
-  public IP — same model the original FRTCON infra summary described);
-  Cloudflare's edge is what terminates the browser-facing HTTPS connection,
-  completely independent of whatever the origin does. **No certbot
-  certificate exists for soupcon.org, and none is needed** — this was a
-  real question raised while building this fork's infra, resolved by
-  checking the actual tunnel config rather than assuming frtcon.com's
-  pattern (frtcon.com's own ingress rule turns out to be plain HTTP too,
-  not HTTPS-to-`:443` as an earlier draft of this document assumed before
-  the actual config was reviewed).
-- **Apache vhost**: `<VirtualHost 127.0.0.1:8082>` (a corresponding
-  `Listen 127.0.0.1:8082` is in `/etc/apache2/ports.conf`), `ServerName
-  soupcon.thoughtleap.com` with `ServerAlias soupcon.org www.soupcon.org`,
-  `DocumentRoot /home/soupcon/soupcon.org`, `AllowOverride All` (needed for
-  `.htaccess`'s rewrite/header rules), and `Require ip 127.0.0.1 ::1` on
-  the directory as defense-in-depth on top of the loopback-only bind.
-- **Deploy path**: `/home/soupcon/soupcon.org/` is the production root,
-  with a `dev/` subdirectory (`/home/soupcon/soupcon.org/dev/`) as the
-  review-before-promote copy — the same pattern frtcon.com's
-  `public_html/dev` serves, just a differently-named top-level directory.
-  Both copies confirmed live (`200` responses) with correct world-readable
-  permissions throughout (checked recursively — the file-permissions
-  gotcha below does not currently apply here).
-- **`mod_headers` was not enabled** on this Apache instance when soupcon.org
-  first went live (only `mime`/`rewrite` were) — silently dropping the
-  `Link` discovery headers `.htaccess` sets up, exactly the kind of
-  graceful-degradation gap that config's own `<IfModule>` wrapping was
-  designed to allow, just not actually wanted here. Fixed live (`a2enmod
-  headers` + reload) once noticed — this was a **pre-existing gap
-  affecting frtcon.com identically**, not something this deploy
-  introduced, since it's the same shared Apache instance; confirmed both
-  sites now send the `Link` header correctly.
-- **Cloudflare's "Managed robots.txt"** is active on this zone and
-  prepends its own Content-Signal boilerplate + crawler-disallow list
-  ahead of this app's own `robots.txt` on the live response — confirmed via
-  a direct fetch, exactly the scenario the Agent readiness section below
-  already anticipated as a possibility. Practical effect: most robots.txt
-  parsers only honor the *first* `User-agent: *` group, so Cloudflare's own
-  directive (which omits `ai-input` entirely, i.e. "unspecified" rather
-  than granted) likely shadows this app's own explicit `ai-input=yes`.
-  **Not yet resolved** — left as-is; revisit if the explicit
-  `ai-input=yes` policy stance matters enough to disable Cloudflare's
-  managed robots.txt for this zone.
-- No domain-registration/DNS-zone specifics (registrar, nameservers) were
-  independently confirmed here beyond what's implied by the tunnel/DNS
-  routing actually working live — assume the same Namecheap+Cloudflare
-  pattern as frtcon.com unless told otherwise.
+- The site is plain static files served by Apache behind a Cloudflare
+  Tunnel, on the same origin server as frtcon.com. Nothing on the origin
+  is exposed to the internet directly. The tunnel is the only way in.
+- **No TLS certificate on the origin, on purpose.** The tunnel talks plain
+  HTTP to Apache over loopback, and Cloudflare's edge handles HTTPS for
+  visitors. An origin certificate would add upkeep and no security. (The
+  original plan assumed a certbot setup like the one FRTCON was thought to
+  have. Reading the actual tunnel config showed FRTCON doesn't use one
+  either.)
+- The Apache site allows `.htaccess` overrides (needed for the rewrite and
+  header rules) and only accepts connections from localhost.
+- There are two copies of the site: production at the root, and a `dev/`
+  copy for checking a build before promoting it.
+- **`mod_headers` was off when the site launched**, so Apache quietly
+  dropped the `Link` headers set in `.htaccess`. The rules are wrapped in
+  `<IfModule>`, which meant no error, just missing headers. It turned out
+  frtcon.com had the same problem on the same server. Enabling the module
+  fixed both.
+- **Cloudflare's "Managed robots.txt" is on for this domain.** It inserts
+  its own rules ahead of the app's `robots.txt`. Most crawlers only read
+  the first `User-agent: *` group, so Cloudflare's version probably
+  overrides the app's explicit `ai-input=yes`. This is still undecided.
+  Fixing it would mean turning off the managed robots.txt for this domain.
 
-## Frontend architecture & conventions
+## Frontend architecture
 
-- React + Vite, **no backend**, no build-time secrets.
-- Code is split into modules (see README for the tree):
-  `App.jsx` (orchestration only), `lib/` (pure logic + network calls),
-  `data/` (static content), `components/`.
-- **Styling**: plain CSS in `src/styles.css`, semantic kebab-case class
-  names (e.g. `.soupcon-condition-status` for the condition box,
-  `.soupcon-badge--level-N` modifier classes for severity colors). No
-  CSS-in-JS, no inline `style={}` except for genuinely per-instance
-  dynamic values (e.g. each raindrop's randomized position/timing in
-  `RainOverlay.jsx`).
-- `lib/soupcon.js` (`classifySoupcon`) is pure — no React/DOM dependency —
-  and does have a test suite (`soupcon.test.js`, `vitest`; the API layer
-  has `weatherApi.test.js` too, with `fetch` stubbed), unlike FRTCON's
-  equivalent module, which never got one.
-- **Classification data source (the single biggest architectural
-  difference from FRTCON):** FRTCON classified a list of NWS *alerts* by
-  matching each one's fixed, published `event` string. SOUPCON classifies
-  *forecast text* instead — there's no NWS alert type for "it's raining
-  right now" in the general case, so alerts aren't usable as the primary
-  signal here. `classifySoupcon` takes three inputs:
-  - `hourlyPeriods` (NWS gridpoint `forecast/hourly`) — drives the
-    12h/48h rain windows (levels 2/3).
-  - `observation` (nearest station's `/observations/latest`) — drives
-    "currently raining" (level 1). See the station-staleness note below.
-  - `extendedPeriods` (NWS gridpoint `forecast`, 12-hour periods) — drives
-    the cloudy-vs-clear split (levels 4/5) once rain is ruled out for 48h.
+- React and Vite, no backend, no build-time secrets.
+- `App.jsx` handles state and orchestration. `lib/` holds pure logic and
+  network calls, `data/` holds static content, and `components/` holds the
+  UI.
+- **Styling** is plain CSS in `src/styles.css` with descriptive kebab-case
+  class names (for example `.soupcon-condition-status` for the condition
+  box and `.soupcon-badge--level-N` for level colors). Inline styles are
+  used only for values that differ per element, like each raindrop's
+  random position and timing in `RainOverlay.jsx`.
+- `lib/soupcon.js` (`classifySoupcon`) is pure, with no React or DOM
+  dependency, and has a full `vitest` suite. The API layer has its own
+  tests with `fetch` stubbed out. FRTCON never had either.
 
-  A fourth NWS request, the raw gridpoint data (`/gridpoints/{office}/{x},{y}`,
-  `getSkyCover`), feeds only the Sources panel's 48-hour chart: its hourly
-  `skyCover` percentage is the number behind "Mostly Cloudy"/"Partly
-  Sunny", so the chart doesn't have to guess percentages from wording. It
-  is **not** part of the score and is only fetched while Sources is open
-  (cached 30 min). Its values come as ISO 8601 intervals
-  (`.../PT3H` = that value for 3 hours), expanded to hourly by
-  `expandGridValues`. Scoring from these numbers instead of the wording
-  was discussed and not done; the chart's note says it's for reference.
+### How the level is decided
 
-  Because `shortForecast`/`textDescription` are genuinely closer to free
-  text than an alert's `event` field, the precipitation/cloudy/clear
-  keyword lists in `soupcon.js` were checked against live `api.weather.gov`
-  output (several rain-prone cities, 48h of hourly + several extended
-  periods) before being trusted, not just assumed — see `SOUP_PLAN.md`
-  item 2's "Done" note for exactly what was checked. Still not a
-  guaranteed-complete set, the same caveat FRTCON's own `event`-matching
-  carried.
-- **Worldwide lookups via Open-Meteo (SOUP_PLAN.md item 22).** NWS is
-  US-only, so `src/lib/weatherProvider.js` (`lookupWeather`) tries NWS
-  first and uses Open-Meteo only when `/points` returns **404** (checked
-  live: London and Vancouver 404 with problem type `InvalidPoint`; Puerto
-  Rico, Hawaii, Alaska and Guam resolve, which is why this isn't a bounding
-  box). It keys on that 404 only (`OutsideNwsCoverageError`), never on any
-  NWS failure, so an NWS outage still fails instead of silently switching
-  source. NWS alerts are only requested once coverage is confirmed.
-  Results are tagged `provider: "nws" | "open-meteo"`; background refresh
-  (`refreshWeather`) uses the same provider and doesn't re-probe NWS.
-  - **Separate classifier, shared scale.** `classifyOpenMeteo` decides from
-    WMO weather codes (`wmoCodes.js`, one table for the classifier *and* the
-    Sources panel text) and cloud cover, and builds its result through the
-    same `soupconResult` helper as `classifySoupcon`, so both providers give
-    identical wording per level. (Results also carry a `basis`, the reading
-    that decided the level, for the Sources panel's "Decided by" line; that
-    field is provider-specific by design and the parity test excludes it.) Design calls agreed with the owner: the
-    level 4 vs. 5 window is the same ~48 hours as NWS, read from the hourly
-    rows in four 12-hour blocks (cloudy = an overcast/fog hour, or average
-    cover >= 70%; the 70% is an estimate of NWS's "Mostly Cloudy" boundary,
-    not measured); the daily rows are display-only because a day's code
-    summarizes the worst condition (London showed drizzle on a 0.5 mm day).
-    Rain/snow in the hourly rows is decided by code only, probability is
-    display-only. Level 1 uses `current` directly (snowfall > 0 is snow,
-    then rain/showers, then the code); there's no hourly fallback because
-    `current` is always present (a response without it is rejected).
-  - **Open-Meteo request details** (`openMeteoApi.js`): `timeformat=unixtime`
-    (true instants; local strings have no offset), `timezone=auto` (so the
-    daily rows start at the location's local midnight; verified for Tokyo),
-    and `forecast_hours=48&past_hours=0` so the hourly series starts at the
-    current hour rather than local midnight. An empty hourly/daily/current
-    response is an error, not "clear" (same rule as NWS).
-  - **Reverse geocoding constraint (don't relax without re-reading their
-    policy).** BigDataCloud's free client-side endpoint may only be called
-    with the *device's own current location*; other coordinates can get the
-    visitor's IP banned (HTTP 402). So `openMeteoLabel` calls it only when
-    the lookup's `source` is `"browser"`; `?lat=&lon=` URL coordinates show
-    "Lat 51.51, Lon -0.13" instead. The wait is capped at 3 s
-    (`GEOCODE_WAIT_MS`) so a slow geocoder can't hold up the forecast, and a
-    failure returns null rather than failing the lookup. Nominatim was
-    considered and not chosen (public server isn't meant for per-visitor
-    lookups).
-  - **Terms:** Open-Meteo's free tier is non-commercial. Fine today;
-    revisit before adding ads or the affiliate ideas under "Shelved".
-  - **City search (SOUP_PLAN.md item 24).** A Country dropdown beside the
-    ZIP field (default USA = ZIP as before). Any other country swaps in a
-    city field and "Search city", which calls Open-Meteo's forward geocoding
-    (`placeSearch.js`: `countryCode`-filtered, asks for 20 and keeps up to 8
-    populated places -- GeoNames `PPL*` feature codes -- falling back to all
-    results if none are, so airports/heliports don't crowd the list; one
-    match is used directly, several show a "Which one?" list). Forward
-    geocoding by name has no device-location restriction, unlike the
-    BigDataCloud reverse lookup. The picked place's own name is passed as
-    `label` to `lookupWeather`, so no reverse geocode is needed for it; the
-    pick is saved (`soupcon_last_source=city`, `soupcon_last_place`) and
-    resumed on the next visit from its saved coordinates. A country that NWS
-    covers (Puerto Rico, Guam...) still routes to NWS and keeps NWS's label.
-  - **Not supported / out of scope:** non-US ZIP/postal codes, non-US
-    alerts, and city search for the US (ZIP is the US path). The snow code mapping (71-77, 85-86) is
-    unit-tested only; no snow was forecast anywhere when it was built.
-- **Rain vs. snow.** Levels 1-3 don't distinguish rain from snow for the
-  *level* itself — a `SNOW_KEYWORDS` list (snow, sleet, ice pellets —
-  stations' word for sleet — blizzard, flurries, wintry mix) is checked *before* `RAIN_KEYWORDS`, so a mixed/ambiguous
-  phrase like "Snow Showers" reads as snow rather than being swallowed by
-  the "showers" rain match. `classifySoupcon`'s result carries a
-  `precipType` (`"rain"`/`"snow"`/`null`) that drives both the short
-  title/reason wording ("It's raining" vs. "It's snowing") and which
-  overlay component renders (`RainOverlay` vs. `SnowOverlay` in
-  `App.jsx`) — but *not* the rotating commentary lines in the condition
-  box (`soupMessages.js`), which stay rain-flavored regardless; a full
-  parallel snow-flavored commentary set was considered and explicitly
-  declined as out of scope when this was built. "Freezing Rain" is
-  deliberately classified as rain, not snow (falls and reads visually as
-  rain, freezes only on contact).
-- **Nearest-station staleness:** a station listed as "the" observation
-  station for a point isn't guaranteed to have reported recently.
-  `getCurrentConditions` (`weatherApi.js`) picks candidate stations by
-  haversine distance from the lookup point (`selectObservationStations`:
-  all within 60 miles, but at least the nearest 2 however far — rural
-  points can have just one in range — and at most 5, since dense areas
-  have dozens in range, e.g. 41 around Seattle; sorted by computed
-  distance because NWS's list order is only roughly by proximity), fetches
-  them *in parallel* (sequentially, with a 10s timeout each, a slow
-  NWS could hold the whole lookup for ~a minute) and uses the nearest one
-  with a reading within 90
-  minutes *that actually carries weather* (a non-blank `textDescription`
-  or a numeric `precipitationLastHour` — fresh-but-blank observations are
-  common, even from major airports, and would otherwise read as "not
-  raining" while also suppressing the hourly fallback); if none qualify, it returns `null` rather than throwing, and
-  `classifySoupcon` falls back to the current hourly forecast period for
-  the "currently raining" check in that case.
-- **NWS forecast responses aren't trimmed to "now."** Live
-  `forecast/hourly` responses routinely still lead with the hour that just
-  ended (seen in 3 of 7 cities checked at once), and cached copies age
-  further. `classifySoupcon` drops any period whose `endTime` has passed
-  (takes an injectable `now` for tests) before applying the 12h/48h
-  windows or the level-1 hourly fallback.
-- **Classifier judgment calls settled with the owner (SOUP_PLAN.md item
-  16):** "Partly Cloudy"/"Partly Sunny" are the same sky cover (NWS uses
-  one by night, the other by day — confirmed live), so neither counts as
-  cloudy for level 4 (`NOT_CLOUDY_PHRASES`); the level-1 hourly fallback
-  needs a 40%+ probability (or unhedged wording when none is reported),
-  a stricter bar than levels 2/3, which take any precip wording; precip in
-  the near-term extended periods forces level 4 rather than 5; and
-  "in Vicinity" station readings deliberately count as level 1.
-- **Shared gridpoint lookup + in-flight de-dup:** `getLocationLabel`,
-  `getHourlyForecast`, `getExtendedForecast`, and `getCurrentConditions`
-  all need the same NWS `/points/{lat},{lon}` response (grid office/x/y,
-  the two forecast URLs, the observation-stations URL, and the location
-  label). A private `getGridpointInfo` in `weatherApi.js` both caches that
-  response (TTL-based, like everything else in `cache.js`) and
-  deduplicates concurrent in-flight requests for the same location via an
-  in-memory `Map` of pending promises. Since item 22, `lookupWeather`
-  awaits `getLocationLabel` first (it doubles as the NWS coverage probe)
-  and only then starts the other three, so a normal lookup mostly hits the
-  cache; the de-dup still matters for `refreshWeather`, the Sources panel,
-  and when `localStorage` is blocked (no cache at all). The
-  shared request runs on its first caller's `AbortSignal`, so an entry
-  whose signal is already aborted is never joined — a new lookup for the
-  same location starts its own request instead of inheriting the
-  cancellation. It's still not a general per-caller-cancellation
-  mechanism (joiners can't cancel the shared request themselves).
-- **An empty hourly forecast is an error, not "clear."**
-  `getHourlyForecast` throws (and doesn't cache) when NWS returns zero
-  periods, since `classifySoupcon` would otherwise fall through to level 5.
-- **Location label:** uses NWS's `relativeLocation` (city/state, e.g.
-  "Seattle, WA") from the `/points` response, not a forecast-zone name —
-  reads better for a rain app than FRTCON's old zone-name label did.
-  `getZoneByPoint` (the old zone lookup) was deleted once this replaced
-  its only use.
-- **Raw alerts panel kept, decoupled from the score.** SOUPCON still shows
-  every active NWS alert for the location (flood-family alerts are
-  on-theme for a rain app), but purely as an independent info panel —
-  `classifySoupcon` doesn't look at alerts at all, so there's no
-  "alerts driving the score" concept anymore.
-- PWA support exists: `manifest.json`, a no-cache/network-first `sw.js`
-  (deliberate — this app shows live rain-forecast data, so caching would be
-  actively misleading, not just stale), and install-flow UI in the
-  hamburger menu (Android gets a real install button via
-  `beforeinstallprompt`; iOS gets manual "Add to Home Screen"
-  instructions, since no programmatic install API exists on iOS/WebKit,
-  ever, at any effort level). The service worker registers at a path
-  relative to `import.meta.env.BASE_URL` (so it works whether the build
-  is in `public_html/dev` or promoted to the root), but `manifest.json`'s
-  `start_url` and `scope` are deliberately left hardcoded to `"/"` — a
-  JSON file has no build-time templating, so making those environment-
-  aware isn't worth it for a review-only instance. Practical effect:
-  install/PWA behavior can't be meaningfully tested from `/dev/`, only
-  from production. `sw.js` also catches a failed page navigation (a bare
-  `fetch()` failure, notably during Android cold-start before the OS has
-  finished bringing the network stack back up) and serves a small
-  self-contained "Reconnecting…" page instead of falling through to
-  Chrome's own blank-looking offline interstitial — that page retries
-  with capped backoff, then gives up with a manual Retry button rather
-  than spinning forever on a real outage/airplane-mode; see `public/sw.js`
-  for the retry/give-up logic.
-- The app auto-resumes a returning visitor's last-used lookup method
-  (browser geolocation, ZIP, or a city-search pick) on load, tracked via a
-  `soupcon_last_source` localStorage key — but that key (and
-  `soupcon_last_zip`/`soupcon_last_place`) is only written once a lookup
-  actually succeeds, `?lat=&lon=` URL lookups never write it, and
-  the silent auto-resume is skipped entirely if
-  `navigator.permissions` reports geolocation as `denied`. (This behavior,
-  and the reasoning behind it, carried over unchanged from FRTCON.)
+This is the biggest difference from FRTCON. FRTCON matched each NWS
+alert's `event` name, which comes from a fixed published list. There's no
+NWS alert for "it's raining right now," so SOUPCON reads the forecast text
+instead. `classifySoupcon` takes three inputs:
 
-- **Facebook Share button** (`handleShare` in `App.jsx`). Facebook's
-  `sharer.php` accepts only a URL, so the button copies the text to the
-  clipboard and opens `sharer.php?u=https://soupcon.org` in a new tab; the
-  user pastes. Decisions (carried over from FRTCON, still accurate here):
-  (1) the copied text is exactly what the `.soupcon-condition-status` box
-  shows (headline, title, the same random commentary lines) -- so the
-  random line selection lives in `App.jsx` (`soupconMessage`), not inside
-  `SoupconMessage`, so share and display can't diverge; footnote omitted.
-  (2) No URL in the copied text -- the link card already carries it.
-  (3) Clipboard write runs *before* `window.open()`: opening the tab first
-  shifted focus and made Chrome show a "wants to see text and images
-  copied to the clipboard" permission prompt. (4) Toast after, not a
-  confirm dialog before -- user's choice, to avoid an extra click.
-  (5) Plain text only: no way to bold the headline on Facebook
-  (Unicode-bold trick was offered and declined). The "f" icon is a
-  hand-built SVG, not Meta's official brand asset.
+- **Hourly forecast** (`forecast/hourly`) sets the 12-hour and 48-hour rain
+  windows (levels 2 and 3).
+- **Station observation** (`/observations/latest` from a nearby station)
+  sets "raining right now" (level 1).
+- **Extended forecast** (`forecast`, 12-hour periods) decides cloudy vs.
+  clear (levels 4 and 5) once rain is ruled out for 48 hours.
 
-- **Icon artwork and color palette** (added during the SOUPCON rebuild).
-  Icon: a two-tone bowl (a circle with its top half erased, leaving an
-  upward-facing semicircle "bowl body," plus an ellipse "rim" sitting on
-  the flat cut line) under three raindrop shapes, on a solid background —
-  design specified directly by the owner, iterated once for boldness (the
-  first pass was judged "not bold enough"; the current version is a
-  user-edited master SVG with a larger bowl/rim and bigger raindrops).
-  Generated as PNG/ICO from that master via `rsvg-convert`/ImageMagick,
-  with a separately-scaled variant for the maskable icon (Android's
-  circular-crop safe zone) since the bold master's own extremes sit just
-  outside a strict circular mask's safe radius. Palette: kept FRTCON's
-  blue accent family (buttons, status-box border/text, alert chips)
-  unchanged since it ties directly to the icon's raindrops -- "purple
-  shell + blue rain accents" mirrors the icon. Converted only the navy
-  "chrome" colors (page/card/modal backgrounds, borders, dropdown/input
-  backgrounds) to a purple equivalent at matching lightness. Left
-  unchanged: the Facebook-brand blue share button, the red error box, the
-  amber condition-status callout box, and the five severity-badge colors
-  — none of those are "the app's chrome," they're semantic/brand colors
-  independent of the SOUPCON hue.
+Forecast text like `shortForecast` is much closer to free text than an
+alert name. So the rain, cloud and clear keyword lists were checked against
+live NWS output for several rain-prone cities before I relied on them.
+Even so, they can't be guaranteed complete.
 
-- **"Soup of the day" pill** (`src/lib/soupOfTheDay.js`, `SOUP_PLAN.md`
-  item 19). Caches its pick by **local calendar date**, not a rolling
-  TTL — deliberately not built on `cache.js`'s `getCacheItem`/
-  `setCacheItem` (duration-since-write), since the ask was specifically
-  "cache until midnight local time," which needs a date-string comparison
-  instead. The pick also expires while the app is left open: `App.jsx`
-  re-picks on a timer set for local midnight and on every return to
-  visibility (timers freeze in background tabs/suspended PWAs); a same-day
-  re-check returns the cached pick, so it never changes mid-day.
-  Picks from a small `ALL_RECIPES` array in `App.jsx` (currently
-  the imported recipe objects, one per file) rather than scanning
-  `src/data/recipes/` at build/runtime — adding a recipe still means
-  adding it to this array by hand, the same manual step item 18 already
-  established for its menu item/import.
+Some details:
 
-## Agent readiness
+- **Rain vs. snow.** Snow keywords (snow, sleet, ice pellets, blizzard,
+  flurries, wintry mix) are checked *before* rain keywords, so "Snow
+  Showers" counts as snow instead of matching the "showers" rain keyword.
+  The result carries a `precipType` that picks the wording ("It's raining"
+  or "It's snowing") and the animation (`RainOverlay` or `SnowOverlay`).
+  The rotating commentary lines in `soupMessages.js` stay rain-themed
+  either way. A separate snow set was considered and left out. Freezing
+  rain counts as rain, since it falls as rain and only freezes on contact.
+- **Finding a station with a fresh reading.** The station NWS lists first
+  for a point isn't always reporting. `selectObservationStations` sorts
+  nearby stations by actual distance, since NWS's own order is only
+  roughly by distance. It takes every station within 60 miles, but always
+  at least 2 and never more than 5. (Rural points can have one station in
+  range, and Seattle has 41.) They're all fetched in parallel, and the
+  nearest one with a reading less than 90 minutes old that actually
+  reports weather wins. Fresh but blank readings are common, even at major
+  airports. If no station qualifies, the classifier falls back to the
+  current hourly forecast period.
+- **Ended forecast periods are dropped.** Live hourly forecasts often still
+  start with the hour that just ended, and cached copies age further. The
+  classifier ignores any period whose end time has passed. It accepts an
+  injectable `now` for tests.
+- **Judgment calls in the classifier:**
+  - "Partly Cloudy" (NWS's night wording) and "Partly Sunny" (its day
+    wording) describe the same sky, so neither counts as cloudy.
+  - The hourly fallback for level 1 needs a 40% chance of rain, or unhedged
+    wording when NWS gives no percentage. That's a higher bar than levels
+    2 and 3, where any rain wording counts.
+  - Rain anywhere in the next four extended periods means level 4, never
+    "clear and sunny."
+  - Station readings like "Showers in Vicinity" count as raining now.
+- **An empty forecast is an error, not "clear."** If NWS returns zero
+  hourly periods, `getHourlyForecast` throws instead of letting the
+  classifier fall through to level 5.
+- **One shared `/points` lookup.** The label, hourly, extended and
+  observation calls all need the same NWS `/points` response.
+  `getGridpointInfo` caches it and merges concurrent requests for the same
+  location into one. A pending request whose abort signal has already
+  fired is never reused.
+- **Sky cover for the chart only.** The Sources panel's 48-hour chart uses
+  NWS's raw gridpoint `skyCover` percentage instead of guessing a number
+  from words like "Mostly Cloudy." It's fetched only while the panel is
+  open, and it isn't used for scoring.
+- **Alerts are shown but not scored.** The app still lists every active
+  NWS alert for the location (flood alerts fit a rain app), but the level
+  doesn't depend on them.
 
-Carried over from FRTCON's own agent-readiness work (a Cloudflare scan
-performed there on 2026-09-25) — this fork ships the same files, re-pointed
-at soupcon.org:
+### Outside the US (Open-Meteo)
 
-- `robots.txt` -- `Content-Signal: search=yes, ai-input=yes, ai-train=no`,
-  explicit `Disallow` for known training crawlers (GPTBot, ClaudeBot, CCBot,
-  Google-Extended, Bytespider, Applebot-Extended, meta-externalagent), and a
-  `Sitemap:` line. The ai-train=no stance is the owner's policy call; flip
-  it there if that changes.
-- `sitemap.xml` -- just `/` (single-page app).
-- `index.md` + `.htaccess` -- `Accept: text/markdown` on `/` rewrites to
-  `index.md` (mod_rewrite), with `Vary: Accept`; `Link` headers advertise
-  the sitemap and the markdown alternate. `.htaccess` works because the
-  vhost has `AllowOverride All`; every block is `<IfModule>`-guarded (see
-  the `mod_headers` gotcha below for what that guard actually caught).
-- **Confirmed active, not just a risk:** Cloudflare's own "Managed
-  robots.txt" is enabled on this zone and prepends its own Content-Signal
-  boilerplate + crawler-disallow list ahead of the file above on the live
-  response (checked via a direct fetch against soupcon.org) — see the
-  Infrastructure section for what that practically means for the
-  `ai-input=yes` stance. Not resolved; a deliberate choice would need to
-  disable Cloudflare's managed robots.txt for this zone specifically.
+NWS only covers US points. `weatherProvider.js` asks NWS first and switches
+to [Open-Meteo](https://open-meteo.com/) only when NWS returns a **404** for
+`/points`. London and Vancouver return 404. Puerto Rico, Hawaii, Alaska and
+Guam don't, which is why this doesn't use a bounding box. Any other NWS
+failure is treated as an error, so an NWS outage never quietly switches
+data sources. A background refresh sticks with the provider the lookup
+used.
 
-## Known gotchas (things that already bit us once)
+- **Same scale, separate classifier.** `classifyOpenMeteo` decides from WMO
+  weather codes and cloud-cover percentages. One table in `wmoCodes.js`
+  feeds both the classifier and the Sources panel, so their wording can't
+  drift apart. Both classifiers build results the same way, so each level
+  reads the same whichever provider decided it.
+  - Level 1 comes from Open-Meteo's `current` block, which is a model
+    estimate, not a station reading.
+  - Levels 2 and 3 count any rain or snow code in the next 12 or 48 hours.
+    The precipitation chance is shown but not used.
+  - For levels 4 and 5, the next 48 hours are split into four 12-hour
+    blocks. A block is cloudy if it has an overcast or fog hour or
+    averages at least 70% cloud cover. The 70% is my estimate of where
+    NWS starts saying "Mostly Cloudy." The daily outlook is display-only,
+    because a day's code reflects its worst hour.
+- **Request details.** Times are requested as Unix timestamps, since local
+  time strings carry no offset. The time zone is set to the location's
+  own, so daily rows start at local midnight. The hourly series starts at
+  the current hour.
+- **Place names.** BigDataCloud's free reverse geocoder may only be called
+  with the device's *own* location. Other coordinates can get the
+  visitor's IP banned. So it's used only for browser-geolocation lookups.
+  `?lat=&lon=` links show coordinates instead. The app waits at most 3
+  seconds for a name, and a failure falls back to coordinates.
+- **City search.** Choosing a country other than USA swaps the ZIP field
+  for a city search using Open-Meteo's geocoding API. It returns populated
+  places only, so airports don't crowd the list. Search by name has no
+  device-location restriction.
+- **Terms.** Open-Meteo's free tier is non-commercial only. That's fine
+  for now, but it needs another look before adding ads or affiliate links.
+- **Out of scope:** non-US postal codes, non-US alerts, and city search
+  inside the US (ZIP covers that). The snow codes are covered by tests
+  only, since nothing was forecasting snow when this was built.
 
-- **A rain-only keyword list silently misclassifies snow as "clear and
-  sunny," not just "unrecognized."** Before `SNOW_KEYWORDS` existed, a
-  plain `"Snow"` forecast/observation with no `probabilityOfPrecipitation`
-  reported (which happens — NWS doesn't always populate that field, and
-  observation objects don't carry it at all) matched none of
-  `RAIN_KEYWORDS`, none of `CLOUDY_KEYWORDS`, fell through every check, and
-  landed on the optimistic default: SOUPCON5, "Clear and sunny." Confirmed
-  live via direct testing (not just reasoned about) while it was actively
-  snowing in the test data. The lesson: a keyword-based classifier's
-  "nothing matched" fallback needs to be checked against every input
-  family it might plausibly see, not just the one the app is nominally
-  "about" — a rain app still needs to know what snow looks like in the
-  same data feed, or its default answer becomes actively wrong instead of
-  just incomplete.
-- **Never set a custom `User-Agent` header on `fetch()` calls to
-  api.weather.gov.** Chrome/Firefox silently ignore it, but Safari
-  (all iOS browsers, since iOS mandates WebKit) sends it as a real
-  header, which fails NWS's CORS preflight and breaks every request
-  specifically on iPhone. This was already added once (in FRTCON), caused
-  exactly this bug, and was removed — don't re-add it without a
-  server-side proxy to hold it instead.
-- **Static file permissions must be world-readable (644, correct
-  owner:group matching the rest of the deployed site) or Apache silently
-  fails to serve them.** This specifically broke FRTCON's PWA
-  manifest/service worker/icons once (root-owned 600 files) with no
-  visible error — Chrome just never fired `beforeinstallprompt`, with
-  nothing to indicate why. Same risk applies here once this fork is
-  actually deployed.
-- **Don't install certbot via both snap and apt simultaneously** — the
-  DNS plugin snap only registers with the snap `certbot` binary; a
-  coexisting apt install causes "unrecognized arguments" errors that look
-  like a plugin problem but are actually a PATH/installation conflict.
-- **`cloudflared tunnel login`'s resulting `cert.pem` is scoped to a
-  single zone**, chosen at authorization time. Running
-  `cloudflared tunnel route dns` for a hostname in a zone that wasn't
-  authorized doesn't error clearly — it silently creates a garbage
-  record by concatenating the hostname onto whichever zone it does have
-  access to, rather than the intended one. Didn't bite this fork's own
-  soupcon.org rollout (it's live and routing correctly), but still worth
-  checking explicitly if a *new* zone is ever added to this same
-  tunnel/account later — don't assume an existing authorization covers a
-  zone it was never run against.
-- **`mod_headers` is not enabled by default on this origin's Apache** —
-  bit soupcon.org's `Link`-header setup silently (the `.htaccess` rule is
-  `<IfModule>`-wrapped specifically so a missing module degrades instead
-  of erroring, which it did: no error, just no header). Turns out this
-  gap already affected frtcon.com identically, on the same shared Apache
-  instance, unnoticed until this fork's rollout prompted a live check.
-  Fixed with `a2enmod headers` + reload; if this origin is ever rebuilt,
-  confirm `mod_headers` (along with `rewrite`/`mime`, which were already
-  enabled) is on before assuming `.htaccess`'s `Link`/markdown-negotiation
-  rules are actually taking effect — a `curl -I` check against the live
-  site catches this, `.htaccess` alone reading correctly does not.
-- A one-off layout report (iOS: right-side margin missing, on FRTCON)
-  turned out to be a **caching artifact**, not a real CSS bug — confirmed
-  via incognito testing. Worth ruling out caching first for any "looks
-  different on a specific device" report before assuming it's a real
-  rendering issue.
-- **Vite 8 (and therefore `npm run dev`/`build`/`test`) requires Node
-  `^20.19.0 || >=22.12.0`.** An older Node fails two different ways: `vite
-  build`/`vitest` themselves throw (`node:util` doesn't export `styleText`
-  until Node 20), and — separately — `npm install` run under an old
-  npm (9.x, as bundled with Node 18) can silently skip installing a
-  platform-specific optional native binding (e.g.
-  `@rolldown/binding-linux-x64-gnu`), a known npm bug (npm/cli#4828),
-  leaving `node_modules` broken even for a later newer-Node run until it's
-  reinstalled. This dev environment now has **nvm**, with a default alias
-  pinned to a Node satisfying the above (confirm with `nvm current` if
-  something in this list resurfaces).
-- **Service workers update lazily, not on next deploy.** Shipping a new
-  `sw.js` doesn't mean a device picks it up the next time the app opens —
-  the *old* SW instance is still active and controlling the page. The
-  update cycle is: new SW installs in the background on the next visit →
-  `skipWaiting()`/`clients.claim()` force it to take over on that load →
-  but in practice this can mean the app needs to be fully closed and
-  reopened **twice** after a `sw.js` deploy before the new one is actually
-  active. To force it immediately for testing, uninstall and reinstall the
-  PWA rather than assuming one relaunch is enough to confirm a fix (or a
-  regression) in service-worker behavior specifically.
+### Other features
 
-- **Browser testing without Claude in Chrome.** The system Chromium on
-  this host is a snap and refuses to start from a non-snap shell ("not a
-  snap cgroup"). What works: download a standalone
-  `chrome-headless-shell` into scratch space (`npx @puppeteer/browsers
-  install chrome-headless-shell@stable --path <scratch>`), run it with
-  `--no-sandbox` (Ubuntu's AppArmor blocks Chrome's user-namespace
-  sandbox here) and `--remote-debugging-port`, and drive it over the
-  DevTools protocol against `vite preview` of the production build — only
-  ever pointed at localhost and the public NWS/ZIP APIs. CDP's
-  `Fetch` domain can rewrite API responses to simulate weather (e.g.
-  snow). Watch out: the app's geolocation call accepts a 10-minute-old
-  fix (`maximumAge`), so changing the emulated location between lookups
-  in one session still returns the old position. For the worldwide path,
-  `?lat=&lon=` URLs work directly in the browser driver, and
-  `Emulation.setGeolocationOverride` (puppeteer: `page.setGeolocation` after
-  `overridePermissions`) exercises the real browser-geolocation flow,
-  including the reverse geocoder -- use that sparingly and only for a
-  handful of requests (see the reverse-geocoding constraint above; don't
-  loop it over many places, and don't call BigDataCloud directly with
-  made-up coordinates).
+- **PWA.** There's a manifest, a service worker, and an install option in
+  the menu. Android gets a real install button. iOS gets "Add to Home
+  Screen" instructions, since iOS has no way to install programmatically.
+  The service worker deliberately caches nothing, because stale rain data
+  would be misleading. If a page load fails, it shows a small
+  "Reconnecting…" page that retries with backoff and then offers a Retry
+  button. `manifest.json` hard-codes `start_url` and `scope` to `/`, so the
+  install flow can only be tested on the production copy, not `/dev/`.
+- **Remembering the last lookup.** The app re-runs a returning visitor's
+  last lookup (location, ZIP, or city). It's saved only after a lookup
+  succeeds, never for `?lat=&lon=` links, and skipped if location
+  permission has been denied.
+- **Facebook Share.** Facebook's `sharer.php` takes only a URL, so the
+  button copies the condition text to the clipboard first and then opens
+  the share dialog. The copied text matches the condition box exactly, so
+  the random commentary lines are picked in `App.jsx` rather than inside
+  the component. The clipboard write happens *before* the new tab opens.
+  Opening the tab first moved focus away and set off a Chrome clipboard
+  permission prompt.
+- **Icon and palette.** The icon is a two-tone bowl under three raindrops.
+  I designed it and edited it by hand, then generated PNG and ICO sizes
+  from the master SVG. The maskable Android icon is a separately scaled
+  version so it survives circular cropping. The palette keeps FRTCON's
+  blue accents (they match the icon's raindrops) and shifts the navy
+  background colors to purple. Brand colors (Facebook blue), the error red,
+  the amber condition box and the five level colors were left alone.
+- **Soup of the day.** A random recipe is picked per local calendar date,
+  not on a timer, so it changes at midnight. The app also re-checks at
+  midnight and whenever the page becomes visible again, so a tab left open
+  overnight still changes. Adding a recipe means adding it to `ALL_RECIPES`
+  in `App.jsx`.
 
-## Deliberately decided against (don't re-litigate without new info)
+## Crawler and AI-agent files
 
-- **Dropping the high-accuracy geolocation retry.** `handleUseBrowserLocation`
-  tries a low-accuracy fix first, then retries once with high accuracy (GPS)
-  on any failure except permission-denied. Removing the retry (to make a
-  failing lookup report sooner, 15 s instead of 45 s) was tried and reverted:
-  low accuracy doesn't always work, and the retry is what catches those
-  cases. See `SOUP_PLAN.md` item 23.
+Carried over from FRTCON and pointed at soupcon.org:
 
-- **Cloudflare Bot Fight Mode**: left off (carried over from FRTCON). No
-  login/payment/auth surface on SOUPCON itself for it to meaningfully
-  protect, and the Free-tier version has no exception/allowlist mechanism,
-  with a known false-positive track record.
-- **Native app / App Store distribution**: considered and rejected as
-  disproportionate. The PWA install flow (manifest + service worker) gets
-  most of the practical benefit without App Store review/cost/maintenance.
-- **Dynamic per-state home-screen icon** (different icon graphic per
-  SOUPCON level, auto-refreshing): confirmed **not possible** on the web
-  platform at all, on either OS, at any level of engineering effort — no
-  API lets a web app swap its own installed icon post-install. The
-  Badging API (`navigator.setAppBadge`) is the closest real capability
-  (a small number/dot overlay, not a full icon swap) if revisited.
+- `robots.txt` sets `Content-Signal: search=yes, ai-input=yes,
+  ai-train=no`, blocks known AI training crawlers, and points to the
+  sitemap. (See the Cloudflare caveat under Hosting.)
+- `sitemap.xml` lists just `/`.
+- `index.md` and `.htaccess`: a request for `/` with `Accept:
+  text/markdown` gets a plain markdown description of the app, and `Link`
+  headers advertise the sitemap and the markdown version.
 
-## Shelved for later (not started, but scoped)
+## Lessons learned
 
-- **Dedicated recipe pages instead of the overlay modal.** The recipe
-  modal (`RecipeModal.jsx`) currently renders whichever recipe is picked
-  as an in-page overlay (reused as-is for however many recipes exist —
-  see `SOUP_PLAN.md` item 18). The owner floated giving each recipe its
-  own page instead, once there's a real reason to (e.g. deep-linkable/
-  shareable recipe URLs, or SEO) — not started, no routing exists in this
-  app yet (single-page, no router dependency).
-- **Web Share API on mobile** (native share sheet carrying condition text +
-  link). The Facebook Share button itself is built (see above); this
-  mobile variant is not.
-- **Server-rendered share previews.** Agreed shape: accept ZIP or
-  coordinates as URL parameters, server-render the initial page using
-  those inputs, and set Open Graph meta tags to match the resulting
-  condition — so a shared link's preview (and the link itself) reflects
-  a specific real location, and doubles as a genuinely useful "check this
-  location" link for whoever receives it. Requires moving off a purely
-  static/client-rendered model — this is the prerequisite for both this
-  and the next item. (Carried over from FRTCON, unchanged.)
-- **Push notifications** for badge/condition updates while the app isn't
-  open (not just on open). Requires a small backend that polls NWS on a
-  schedule and pushes updates to subscribed clients.
-- **Affiliate integration** (Walmart and/or Amazon) for soup ingredients or
-  rainy-day gear. Walmart's affiliate program was applied for (under the
-  FRTCON project); requires no business entity (individual + SSN/W-9 is
-  sufficient). Walmart's "Recipes and Bundle API" is a good fit given it
-  can map an ingredient list (the recipe already on-site) to purchasable
-  products. Any product-API-based approach (Walmart or Amazon PA-API)
-  requires a server-side credential proxy — the API keys involved cannot
-  be exposed client-side the way an AdSense publisher ID or Google
-  Analytics ID can. Google AdSense itself was also discussed as a
-  simpler, contextual-only (not manually curated) alternative if a full
-  product-API integration ends up being more than it's worth.
+- **A keyword classifier's fallback needs to know about every kind of
+  input.** Before snow keywords existed, a plain "Snow" forecast matched
+  nothing and fell through to level 5, "Clear and sunny," while it was
+  snowing. A rain app still has to recognize snow in the same data feed.
+- **Never set a custom `User-Agent` on requests to api.weather.gov.**
+  Chrome and Firefox ignore it, but Safari, and so every iOS browser,
+  sends it as a real header. NWS's CORS preflight rejects it, which breaks
+  every request on iPhone. This happened once in FRTCON. If NWS
+  attribution is ever needed, it belongs in a server-side proxy.
+- **Static files must be world-readable.** Apache won't serve files that
+  only their owner can read, and there's no visible error. This once broke
+  FRTCON's PWA install: Chrome just never offered to install.
+- **Don't install certbot from both snap and apt.** The DNS plugin only
+  works with the snap version, and having both causes confusing
+  "unrecognized arguments" errors.
+- **A `cloudflared tunnel login` certificate covers only one DNS zone.**
+  Routing a hostname in a different zone doesn't fail clearly. Instead it
+  creates a broken record under the zone you did authorize.
+- **Rule out caching first** when a layout bug shows up on just one device.
+  One iOS margin bug on FRTCON turned out to be a cached old version.
+- **Vite 8 needs Node 20.19+ or 22.12+.** An older Node fails in confusing
+  ways. An old npm can also skip a required native package, which leaves
+  `node_modules` broken until it's reinstalled.
+- **Service workers update lazily.** After deploying a new `sw.js`, the app
+  may need to be closed and reopened twice before the new worker takes
+  over. For testing, uninstall and reinstall the PWA.
+- **Headless browser testing.** The app was tested by running a standalone
+  `chrome-headless-shell` against `vite preview` and controlling it through
+  the DevTools protocol (it can rewrite API responses to simulate snow).
+  Two things to know:
+  - The app accepts a location fix up to 10 minutes old, so changing the
+    emulated location mid-session can still return the old position.
+  - Use emulated browser geolocation sparingly. It goes through the
+    reverse geocoder, whose terms forbid looking up arbitrary coordinates.
 
-All shelved items above except the recipe-pages one converge on the
-same prerequisite: introducing a real backend/server-rendering layer.
-Worth treating as one combined migration rather than several separate ones
-when the time comes.
+## Decided against
+
+- **Dropping the high-accuracy location retry.** Location lookups try a
+  quick low-accuracy fix first, then retry once with GPS. Removing the
+  retry would report a failure sooner (15 seconds instead of 45), but the
+  retry is what rescues the cases where low accuracy fails. I tried
+  removing it and put it back.
+- **Cloudflare Bot Fight Mode.** There's no login or payment page to
+  protect, the free version has no allowlist, and it's known to block
+  legitimate traffic.
+- **A native app.** Out of proportion to the benefit. The PWA gets most of
+  it without app store review or upkeep.
+- **A home-screen icon that changes with the level.** Not possible on the
+  web on any platform. The Badging API (a small number or dot) is the
+  closest thing.
+
+## Ideas for later
+
+- **Separate pages for recipes**, instead of the pop-up, for shareable
+  links. The app has no router yet.
+- **The Web Share API on mobile**, for a native share sheet.
+- **Server-rendered share previews.** Accept a ZIP or coordinates in the
+  URL, render the page on the server, and set Open Graph tags so a shared
+  link previews the real condition for that place.
+- **Push notifications** to update the condition while the app is closed.
+  This needs a small backend that polls NWS.
+- **Affiliate links** for soup ingredients or rainy-day gear, possibly
+  through Walmart's recipe API matched against the recipe's ingredients.
+  Product APIs need keys that can't be exposed in the browser, so this
+  needs a server-side proxy too. AdSense would be a simpler alternative.
+
+Every idea above except recipe pages needs a backend or server rendering.
+When the time comes, it makes sense to build that once for all of them.
+
+---
+
+© Jeffrey Morton. Shared for portfolio & demonstration purposes. All rights
+reserved.
