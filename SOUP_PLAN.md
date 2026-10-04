@@ -467,6 +467,12 @@ area, cloud cover as a line, and a dashed marker on the deciding hour.
 - Checked in headless Chrome at desktop and phone widths, for the US and
   London.
 
+### 28. Contact box
+
+A card at the bottom of the page invites feedback and bug reports, with a
+`mailto:` link to contact@soupcon.org. It shows whether or not a location
+has been looked up. Checked with lint and a production build.
+
 ---
 
 ## Still open

@@ -1063,6 +1063,11 @@ export default function App() {
             <StationDebugPanel result={result} soupcon={soupcon} />
           </div>
         ) : null}
+
+        <div className="card contact-card">
+          If you like the site, let me know! If you find a bug, tell me!{" "}
+          <a href="mailto:contact@soupcon.org" className="contact-link">contact@soupcon.org</a>
+        </div>
       </div>
     </div>
 

@@ -272,6 +272,19 @@ div[role="dialog"] {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
+/* Feedback box pinned to the bottom of the page, shown with or without
+   results. */
+.contact-card {
+  margin-top: 20px;
+  text-align: center;
+  color: #e5d9f5;
+}
+
+.contact-link {
+  color: #ffffff;
+  font-weight: 600;
+}
+
 .card-title {
   margin-top: 0;
   margin-bottom: 12px;
