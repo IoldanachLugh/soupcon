@@ -232,6 +232,8 @@ src/
     AlertCard.jsx
     RecipeModal.jsx
     IOSInstallHelp.jsx
+    PrivacyNote.jsx            — collapsed "Privacy" note at the
+                                bottom of the page
 ```
 
 ## Getting started

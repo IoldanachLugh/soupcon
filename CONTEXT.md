@@ -211,6 +211,15 @@ used.
   midnight and whenever the page becomes visible again, so a tab left open
   overnight still changes. Adding a recipe means adding it to `ALL_RECIPES`
   in `App.jsx`.
+- **Privacy note.** A collapsed "Privacy" section (`PrivacyNote.jsx`, a
+  native `<details>`) sits at the bottom of the page, below the contact
+  box. It's not in the menu and not a modal. Its wording is only accurate
+  while the app sets no cookies, has no analytics or ads, keeps data only
+  in `localStorage`/`sessionStorage`, and calls only the services it names
+  (Zippopotam.us, NWS, Open-Meteo, BigDataCloud, plus Cloudflare). Adding
+  analytics, ads, a contact form, or a new outside service means rewriting
+  it. The `mailto:` contact link doesn't count, since it sends nothing by
+  itself.
 
 ## Crawler and AI-agent files
 

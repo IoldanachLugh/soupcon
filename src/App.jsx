@@ -18,6 +18,7 @@ import { lookupWeather, refreshWeather, classifyLookup, PROVIDER_NWS } from "./l
 import { soupMessages } from "./data/soupMessages";
 import { RainOverlay } from "./components/RainOverlay";
 import { SnowOverlay } from "./components/SnowOverlay";
+import { PrivacyNote } from "./components/PrivacyNote";
 import { SoupconBadge } from "./components/SoupconBadge";
 import { SoupconMessage } from "./components/SoupconMessage";
 import { AlertCard } from "./components/AlertCard";
@@ -1068,6 +1069,8 @@ export default function App() {
           If you like the site, let me know! If you find a bug, tell me!{" "}
           <a href="mailto:contact@soupcon.org" className="contact-link">contact@soupcon.org</a>
         </div>
+
+        <PrivacyNote />
       </div>
     </div>
 

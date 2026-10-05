@@ -473,6 +473,45 @@ A card at the bottom of the page invites feedback and bug reports, with a
 `mailto:` link to contact@soupcon.org. It shows whether or not a location
 has been looked up. Checked with lint and a production build.
 
+### 29. Privacy note
+
+A collapsed "Privacy" section at the bottom of the page, below the contact
+box (`PrivacyNote.jsx`, a native `<details>`/`<summary>`, no state). It's
+visible with or without results. The summary is centered like the rest of
+the page, with a chevron that flips when open and a focus outline; the
+body text is left-aligned. Kept out of the menu and not a modal, on
+purpose.
+
+The text started as a spec written for FRTCON. It was corrected for
+SOUPCON before it went in: it names Open-Meteo (forecasts and city search
+outside the US) and BigDataCloud (place names for browser-location
+lookups outside the US), says NWS is used for the forecast as well as
+alerts, and lists the saved city and soup of the day among what's stored.
+
+A follow-up pass for visitors outside the US:
+
+- Every lookup asks NWS first and only switches to Open-Meteo on a 404, so
+  the text now says non-US coordinates reach NWS too.
+- It says some services are outside the visitor's country (NWS and
+  Cloudflare are in the US).
+- It ends with a privacy contact (contact@soupcon.org).
+
+No consent banner, since the only browser storage is for things the
+visitor asked for, and nothing is used for tracking. Formal GDPR sections
+(legal basis, retention, rights) were left out on purpose, since the site
+itself keeps no data.
+
+The text is accurate only while the app has no cookies or analytics, uses
+only `localStorage`/`sessionStorage`, and calls only the services it names.
+If analytics, ads, a contact form, or another outside service is ever
+added, the text must be revisited. No legal wording or consent banner, on
+purpose.
+
+The precipitation overlays are fixed behind the page content and ignore
+clicks, so they don't overlap it, and the contact box is the only thing
+below it. Checked with lint and a production build. It hasn't been checked
+in a browser yet.
+
 ---
 
 ## Still open

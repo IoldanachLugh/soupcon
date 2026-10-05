@@ -285,6 +285,64 @@ div[role="dialog"] {
   font-weight: 600;
 }
 
+/* Collapsed privacy note below the contact box. The summary stays centered
+   like the rest of the page; the body is left-aligned for readability. */
+.privacy-note {
+  margin-top: 20px;
+  color: #e5d9f5;
+}
+
+.privacy-note-summary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  margin: -16px;
+  padding: 0 16px;
+  border-radius: 18px;
+  color: #ffffff;
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+}
+
+.privacy-note-summary::-webkit-details-marker {
+  display: none;
+}
+
+/* Open/closed indicator: a chevron that points down when closed and up
+   when open. */
+.privacy-note-summary::after {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: translateY(-2px) rotate(45deg);
+  transition: transform 0.15s ease;
+}
+
+.privacy-note[open] > .privacy-note-summary::after {
+  transform: translateY(2px) rotate(-135deg);
+}
+
+.privacy-note-summary:focus-visible {
+  outline: 2px solid #60a5fa;
+  outline-offset: 2px;
+}
+
+.privacy-note-body {
+  margin-top: 28px;
+  text-align: left;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.privacy-note-body p + p {
+  margin-top: 12px;
+}
+
 .card-title {
   margin-top: 0;
   margin-bottom: 12px;
