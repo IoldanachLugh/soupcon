@@ -311,20 +311,16 @@ div[role="dialog"] {
   display: none;
 }
 
-/* Open/closed indicator: a chevron that points down when closed and up
-   when open. */
-.privacy-note-summary::after {
-  content: "";
-  width: 7px;
-  height: 7px;
-  border-right: 2px solid currentColor;
-  border-bottom: 2px solid currentColor;
-  transform: translateY(-2px) rotate(45deg);
-  transition: transform 0.15s ease;
+/* Open/closed indicator: the same right/down triangle as the Sources toggle
+   (.station-debug-marker) and the native marker on "Hourly details". One
+   glyph, rotated when open. */
+.privacy-note-summary::before {
+  content: "\25B6";
+  font-size: 0.6em;
 }
 
-.privacy-note[open] > .privacy-note-summary::after {
-  transform: translateY(2px) rotate(-135deg);
+.privacy-note[open] > .privacy-note-summary::before {
+  transform: rotate(90deg);
 }
 
 .privacy-note-summary:focus-visible {

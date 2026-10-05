@@ -478,7 +478,7 @@ has been looked up. Checked with lint and a production build.
 A collapsed "Privacy" section at the bottom of the page, below the contact
 box (`PrivacyNote.jsx`, a native `<details>`/`<summary>`, no state). It's
 visible with or without results. The summary is centered like the rest of
-the page, with a chevron that flips when open and a focus outline; the
+the page, with a triangle marker (see #31) and a focus outline; the
 body text is left-aligned. Kept out of the menu and not a modal, on
 purpose.
 
@@ -522,6 +522,13 @@ has its own card. The button stretches over the card's padding with
 negative margins, so the whole collapsed card can be clicked. Checked with
 lint, tests and a production build. It hasn't been checked in a browser
 yet.
+
+### 31. Privacy marker matches Sources
+
+The Privacy summary had a CSS-drawn chevron after the text. It now uses the
+same ▶ glyph as the Sources toggle and the native marker on "Hourly
+details": before the text, at 0.6em, rotated 90° when open. Checked with
+lint and a production build. It hasn't been checked in a browser yet.
 
 ---
 
