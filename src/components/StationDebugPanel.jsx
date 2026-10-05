@@ -120,7 +120,7 @@ export function OpenMeteoSources({ forecast, soupcon }) {
   const currentType = currentPrecipType(current);
 
   return (
-    <div className="nws-alert-card">
+    <div className="station-debug-body">
       <DecidedBy soupcon={soupcon} />
       <h3 className="station-debug-header">Current conditions (model estimate)</h3>
       <p className="nws-alert-area-desc">
@@ -224,7 +224,7 @@ export function StationDebugPanel({ result, soupcon }) {
   const chosen = readings?.find((reading) => reading.chosen);
 
   return (
-    <div className="station-debug">
+    <div className="nws-alert-card station-debug">
       <button
         type="button"
         className="station-debug-toggle active-alerts-heading"
@@ -243,7 +243,7 @@ export function StationDebugPanel({ result, soupcon }) {
       {open && isOpenMeteo ? <OpenMeteoSources forecast={result.openMeteo} soupcon={soupcon} /> : null}
 
       {open && !isOpenMeteo ? (
-        <div className="nws-alert-card">
+        <div className="station-debug-body">
           <DecidedBy soupcon={soupcon} />
           <h3 className="station-debug-header">Station observations</h3>
           <p className="nws-alert-area-desc">

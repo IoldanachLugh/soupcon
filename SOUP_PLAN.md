@@ -512,6 +512,17 @@ clicks, so they don't overlap it, and the contact box is the only thing
 below it. Checked with lint and a production build. It hasn't been checked
 in a browser yet.
 
+### 30. Sources toggle inside its card
+
+The "Sources" toggle used to sit above the panel as a bare heading, and the
+card only appeared once it was opened. Now the panel is one card that's
+always shown, with the toggle at the top inside it and a 20px top margin
+(the same gap as the contact box). The content below the toggle no longer
+has its own card. The button stretches over the card's padding with
+negative margins, so the whole collapsed card can be clicked. Checked with
+lint, tests and a production build. It hasn't been checked in a browser
+yet.
+
 ---
 
 ## Still open
